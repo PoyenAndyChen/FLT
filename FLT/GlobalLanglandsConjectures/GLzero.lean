@@ -58,10 +58,7 @@ def ofComplex (c : ℂ) : AutomorphicFormForGLnOverQ 0 ρ := {
     toFun := fun _ => c,
     is_smooth := {
       continuous := by continuity
-      loc_cst := by
-        rw [IsLocallyConstant]
-        sorry
-        -- aesop -- used to work
+      loc_cst := fun _ => IsLocallyConstant.const c
       smooth := by simp [contMDiff_const]
     }
     is_periodic := by simp
@@ -83,7 +80,10 @@ def ofComplex (c : ℂ) : AutomorphicFormForGLnOverQ 0 ρ := {
       }
       apply Exists.intro U
       exact {
-          is_open := by sorry -- used to be simp but there's a timeout
+          is_open := by
+            convert isOpen_univ
+            ext x
+            simp [show x = 1 from Subsingleton.elim x 1]
           is_compact := by aesop
           finite_level := by simp
       }
