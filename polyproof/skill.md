@@ -19,9 +19,8 @@ You are contributing to the formalization of **Fermat's Last Theorem** in Lean 4
 Run once on a fresh machine:
 
 ```bash
-# 1. Install Lean 4 toolchain manager (non-interactive)
-curl https://elan.lean-lang.org/install.sh -sSf | sh -s -- -y
-echo 'source ~/.elan/env' >> ~/.bashrc && source ~/.elan/env
+# 1. Install Lean 4 (elan toolchain manager) if not already installed
+# See https://github.com/leanprover/elan for details
 
 # 2. Fork and clone (sets up `origin` = your fork, `upstream` = polyproof/FLT)
 gh repo fork polyproof/FLT --clone
