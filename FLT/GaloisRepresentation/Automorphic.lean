@@ -88,11 +88,34 @@ def GaloisRep.IsAutomorphicOfLevel
     -- and the trace of `ρ(Frobᵥ)` is the eigenvalue of the form at `Tᵥ`
     LinearMap.trace A V (ρ.toLocal v (Frob v)) = π (HeckeAlgebra.T D r ℤ_[p] v hvS)
 
+-- Sub-lemma 1: base change of a simple central algebra is simple
+instance isSimpleRing_baseChange {F E D : Type*}
+    [Field F] [Field E] [Algebra F E]
+    [Ring D] [Algebra F D] [IsQuaternionAlgebra F D] :
+    IsSimpleRing (E ⊗[F] D) := sorry
+
+-- Sub-lemma 2: base change of a central algebra is central over the new base
+instance isCentral_baseChange {F E D : Type*}
+    [Field F] [Field E] [Algebra F E]
+    [Ring D] [Algebra F D] [IsQuaternionAlgebra F D] :
+    Algebra.IsCentral E (E ⊗[F] D) := sorry
+
+-- Sub-lemma 3: rank is preserved under base change
+theorem rank_baseChange_eq {F E D : Type*}
+    [Field F] [Field E] [Algebra F E]
+    [Ring D] [Algebra F D] [IsQuaternionAlgebra F D] :
+    Module.rank E (E ⊗[F] D) = 4 := by
+  rw [Module.rank_baseChange]
+  simp [IsQuaternionAlgebra.dim_four]
+
 instance {F E D : Type*}
     [Field F]
     [Field E] [Algebra F E]
     [Ring D] [Algebra F D] [IsQuaternionAlgebra F D] :
-    IsQuaternionAlgebra E (E ⊗[F] D) := sorry -- Ask Edison?
+    IsQuaternionAlgebra E (E ⊗[F] D) where
+  isSimpleRing := isSimpleRing_baseChange
+  isCentral := isCentral_baseChange
+  dim_four := rank_baseChange_eq
 
 variable {p : ℕ} [Fact p.Prime] in
 noncomputable instance : NormedSpace ℚ_[p] (PadicAlgCl p) := spectralNorm.normedSpace ..
