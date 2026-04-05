@@ -408,9 +408,11 @@ and we don't have a definition of nonarchimedean local field yet.
 \end{proof}
 
 \begin{lemma} $GL_2(\calO_v)$ is a compact open subgroup of $GL_2(K_v)$.
+  \lean{IsDedekindDomain.GL2.localFullLevel.isOpen, IsDedekindDomain.GL2.localFullLevel.isCompact}
   \label{nolean-compactopen-GL2}
 \end{lemma}
 \begin{proof}
+  \leanok
   \uses{nolean-compactopen-matrix, Submonoid.units_isOpen, Submonoid.units_isCompact}
   $K_v$ is known to be Hausdorff, so $M_2(K_v)$ is Hausdorff and the
   results follow from lemmas~\ref{Submonoid.units_isOpen} and~\ref{Submonoid.units_isCompact}.

@@ -74,17 +74,53 @@ theorem M2.localFullLevel.isCompact (v : HeightOneSpectrum (𝓞 F)) :
     IsCompact (M2.localFullLevel v).carrier :=
   (isCompact_iff_compactSpace.mpr (NumberField.instCompactSpaceAdicCompletionIntegers F v)).matrix
 
--- the clever way to prove this is a theorem of the form "if A is an open submonoid of R
--- then Aˣ is an open subgroup of Rˣ"
+private lemma GL2.localFullLevel_carrier_eq (v : HeightOneSpectrum (𝓞 F)) :
+    (GL2.localFullLevel v).carrier = ((M2.localFullLevel v).toSubmonoid.units : Set _) := by
+  ext x
+  simp only [Subgroup.mem_carrier, SetLike.mem_coe]
+  constructor
+  · rintro ⟨y, hy⟩
+    rw [Submonoid.mem_units_iff]
+    constructor
+    · change ↑x ∈ (M2.localFullLevel v).toSubmonoid
+      rw [← hy]
+      intro i j
+      exact (y.val i j).prop
+    · change ↑x⁻¹ ∈ (M2.localFullLevel v).toSubmonoid
+      rw [← hy]
+      simp only [Units.coe_map_inv]
+      intro i j
+      exact (y⁻¹.val i j).prop
+  · intro hx
+    rw [Submonoid.mem_units_iff] at hx
+    obtain ⟨hval, hinv⟩ := hx
+    -- Construct the matrix over 𝒪ᵥ and lift x to GL₂(𝒪ᵥ)
+    let M : Matrix (Fin 2) (Fin 2) (v.adicCompletionIntegers F) :=
+      Matrix.of fun i j => ⟨x.val i j, hval i j⟩
+    let Minv : Matrix (Fin 2) (Fin 2) (v.adicCompletionIntegers F) :=
+      Matrix.of fun i j => ⟨x.inv i j, hinv i j⟩
+    -- M and Minv are mutual inverses
+    have hMMinv : M * Minv = 1 := by
+      funext i j; ext
+      change (∑ k, (M i k).1 * (Minv k j).1) = ((1 : Matrix _ _ (v.adicCompletionIntegers F)) i j).1
+      simp only [M, Minv, Matrix.of_apply, Matrix.one_apply]
+      have := congr_fun (congr_fun x.val_inv i) j
+      simp only [Matrix.mul_apply, Matrix.one_apply] at this
+      rw [this]; split_ifs <;> simp
+    have hMinvM : Minv * M = 1 := mul_eq_one_comm.mp hMMinv
+    let y : GL (Fin 2) (v.adicCompletionIntegers F) :=
+      ⟨M, Minv, hMMinv, hMinvM⟩
+    exact ⟨y, Units.ext (by
+      simp only [y, M, Units.coe_map]
+      ext i j; simp [Matrix.map_apply, Matrix.of_apply])⟩
+
 theorem GL2.localFullLevel.isOpen (v : HeightOneSpectrum (𝓞 F)) :
     IsOpen (GL2.localFullLevel v).carrier :=
-  sorry
+  GL2.localFullLevel_carrier_eq v ▸ Submonoid.isOpen_units (M2.localFullLevel.isOpen v)
 
--- the clever way to prove this is a theorem of the form "if A is a compact submonoid of R
--- then Aˣ is a compact subgroup of Rˣ"
 theorem GL2.localFullLevel.isCompact (v : HeightOneSpectrum (𝓞 F)) :
     IsCompact (GL2.localFullLevel v).carrier :=
-  sorry
+  GL2.localFullLevel_carrier_eq v ▸ Submonoid.units_isCompact (M2.localFullLevel.isCompact v)
 
 lemma GL2.mem_localFullLevel {v : HeightOneSpectrum (𝓞 F)} {x : GL (Fin 2) (v.adicCompletion F)}
     (hx : x ∈ localFullLevel v) :
