@@ -4,9 +4,11 @@ name: PR Gate
 
 on:
   pull_request_target:
-    types: [opened, synchronize, labeled, unlabeled, reopened, closed]
+    types: [opened, synchronize, labeled, unlabeled, reopened]
   pull_request_review:
     types: [submitted, dismissed]
+  push:
+    branches: [main]
 
 permissions:
   contents: write
@@ -15,10 +17,10 @@ permissions:
 
 jobs:
   gate:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Classify PR and check approval gate
-        if: github.event.action != 'closed'
         uses: actions/github-script@v7
         with:
           script: |
@@ -144,56 +146,84 @@ jobs:
 
             core.info(`PR #${prNumber}: type=${prType}, approvals=${approvalCount}/${required}, passed=${passed}`);
 
-      - name: Close competing PRs on merge
-        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+  # --- Post-merge job: runs on push to main (reliable, unlike pull_request_target closed) ---
+  on-merge:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find merged PR and notify
         uses: actions/github-script@v7
+        env:
+          POLYPROOF_API_URL: ${{ secrets.POLYPROOF_API_URL }}
+          POLYPROOF_WEBHOOK_KEY: ${{ secrets.POLYPROOF_WEBHOOK_KEY }}
         with:
           script: |
-            // When a simple_fill merges, close other PRs touching the same files
-            const pr = context.payload.pull_request;
-            if (!pr.labels.some(l => l.name === 'simple_fill')) return;
-
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const mergedFiles = await github.rest.pulls.listFiles({ owner, repo, pull_number: pr.number });
-            const mergedPaths = new Set(mergedFiles.data.map(f => f.filename));
+            const sha = context.sha;
 
-            const openPRs = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 });
-            for (const openPR of openPRs.data) {
-              if (openPR.number === pr.number) continue;
-              const openFiles = await github.rest.pulls.listFiles({ owner, repo, pull_number: openPR.number });
-              const overlap = openFiles.data.some(f => mergedPaths.has(f.filename));
-              if (overlap) {
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: openPR.number,
-                  body: `This PR was closed because PR #${pr.number} was merged, modifying the same files. Feel free to rebase and reopen if your changes are still needed.`,
-                });
-                await github.rest.pulls.update({ owner, repo, pull_number: openPR.number, state: 'closed' });
-                core.info(`Closed competing PR #${openPR.number}`);
+            // Find the PR that produced this push (squash merge commit)
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: sha });
+            const pr = prs.data.find(p => p.merged_at && p.base.ref === 'main');
+            if (!pr) {
+              core.info(`No merged PR found for commit ${sha} — skipping (likely a direct push)`);
+              return;
+            }
+
+            core.info(`Found merged PR #${pr.number}: ${pr.title}`);
+
+            // --- Close competing PRs (for simple_fill only) ---
+            if (pr.labels.some(l => l.name === 'simple_fill')) {
+              const mergedFiles = await github.rest.pulls.listFiles({ owner, repo, pull_number: pr.number });
+              const mergedPaths = new Set(mergedFiles.data.map(f => f.filename));
+
+              const openPRs = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 });
+              for (const openPR of openPRs.data) {
+                if (openPR.number === pr.number) continue;
+                const openFiles = await github.rest.pulls.listFiles({ owner, repo, pull_number: openPR.number });
+                const overlap = openFiles.data.some(f => mergedPaths.has(f.filename));
+                if (overlap) {
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: openPR.number,
+                    body: `This PR was closed because PR #${pr.number} was merged, modifying the same files. Feel free to rebase and reopen if your changes are still needed.`,
+                  });
+                  await github.rest.pulls.update({ owner, repo, pull_number: openPR.number, state: 'closed' });
+                  core.info(`Closed competing PR #${openPR.number}`);
+                }
               }
             }
 
-      - name: Notify PolyProof platform
-        if: github.event.action == 'closed' && github.event.pull_request.merged == true
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GH_USER: ${{ github.event.pull_request.user.login }}
-        run: |
-          AGENT_NAME=$(echo "$PR_BODY" | grep -oE 'PolyProof-Agent: [^ ]+' | cut -d' ' -f2 || echo "")
-          PR_TYPE=$(echo "${{ join(github.event.pull_request.labels.*.name, ' ') }}" | grep -oE 'simple_fill|decomposition|statement_edit|restructure' | head -1)
-          [ -z "$PR_TYPE" ] && PR_TYPE="simple_fill"
-          jq -n \
-            --arg slug "flt" \
-            --argjson number "$PR_NUMBER" \
-            --arg type "$PR_TYPE" \
-            --arg user "$GH_USER" \
-            --arg agent "$AGENT_NAME" \
-            --arg title "$PR_TITLE" \
-            '{project_slug: $slug, pr_number: $number, pr_type: $type, github_username: $user, agent_name: $agent, pr_title: $title}' \
-          | curl -sS -X POST "${{ secrets.POLYPROOF_API_URL }}/api/v1/events/merge" \
-              -H "Authorization: Bearer ${{ secrets.POLYPROOF_WEBHOOK_KEY }}" \
-              -H "Content-Type: application/json" \
-              --max-time 30 \
-              -d @- || true
+            // --- Notify PolyProof platform ---
+            const agentMatch = (pr.body || '').match(/PolyProof-Agent:\s*(\S+)/);
+            const agentName = agentMatch ? agentMatch[1] : '';
+            const prType = pr.labels.map(l => l.name).find(n =>
+              ['simple_fill', 'decomposition', 'statement_edit', 'restructure'].includes(n)
+            ) || 'simple_fill';
+
+            const payload = JSON.stringify({
+              project_slug: 'flt',
+              pr_number: pr.number,
+              pr_type: prType,
+              github_username: pr.user.login,
+              agent_name: agentName,
+              pr_title: pr.title,
+            });
+
+            const apiUrl = process.env.POLYPROOF_API_URL;
+            const webhookKey = process.env.POLYPROOF_WEBHOOK_KEY;
+            if (!apiUrl || !webhookKey) {
+              core.warning('POLYPROOF_API_URL or POLYPROOF_WEBHOOK_KEY not set — skipping notification');
+              return;
+            }
+
+            const response = await fetch(`${apiUrl}/api/v1/events/merge`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${webhookKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: payload,
+            });
+
+            const result = await response.text();
+            core.info(`PolyProof notification: ${response.status} ${result}`);
