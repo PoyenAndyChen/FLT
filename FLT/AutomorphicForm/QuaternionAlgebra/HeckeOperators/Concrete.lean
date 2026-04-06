@@ -112,15 +112,33 @@ open scoped TensorProduct.RightActions in
 noncomputable abbrev U1 : Subgroup (D ⊗[F] (IsDedekindDomain.FiniteAdeleRing (𝓞 F) F))ˣ :=
   Subgroup.map (Units.map r.symm.toMonoidHom) (GL2.TameLevel S)
 
+omit [IsTotallyReal F] in
 variable {F D} in
 open scoped TensorProduct.RightActions in
-lemma U1_compact : IsCompact (U1 r S : Set (D ⊗[F] (IsDedekindDomain.FiniteAdeleRing (𝓞 F) F))ˣ) :=
-  sorry -- #583, long
+lemma U1_compact :
+    IsCompact (U1 r S :
+      Set (D ⊗[F] (IsDedekindDomain.FiniteAdeleRing (𝓞 F) F))ˣ) := by
+  rw [U1, Subgroup.coe_map]
+  have hc : Continuous r.symm :=
+    IsDedekindDomain.HeightOneSpectrum.Rigidification.continuous_invFun D r
+  exact (GL2.TameLevel.isCompact S).image
+    (Continuous.units_map r.symm.toMonoidHom hc)
 
+omit [IsTotallyReal F] in
 variable {F D} in
 open scoped TensorProduct.RightActions in
-lemma U1_open : IsOpen (U1 r S : Set (D ⊗[F] (IsDedekindDomain.FiniteAdeleRing (𝓞 F) F))ˣ) :=
-  sorry -- #583, long
+lemma U1_open :
+    IsOpen (U1 r S :
+      Set (D ⊗[F] (IsDedekindDomain.FiniteAdeleRing (𝓞 F) F))ˣ) := by
+  rw [U1, Subgroup.coe_map]
+  have hcr : Continuous r :=
+    IsDedekindDomain.HeightOneSpectrum.Rigidification.continuous_toFun D r
+  rw [Set.image_eq_preimage_of_inverse
+    (f := Units.map r.symm.toMonoidHom)
+    (g := Units.map r.toMonoidHom)
+    (fun x => by ext; simp) (fun x => by ext; simp)]
+  exact (GL2.TameLevel.isOpen S).preimage
+    (Continuous.units_map r.toMonoidHom hcr)
 
 variable (R : Type*) [CommRing R]
 
@@ -228,6 +246,7 @@ noncomputable instance :
     DistribSMul (D ⊗[F] FiniteAdeleRing (𝓞 F) F)ˣ (WeightTwoAutomorphicForm F D R) :=
   distribMulAction.toDistribSMul
 
+omit [IsTotallyReal F] in
 lemma U_apply (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
     ((U r S R α hα) a).1 =
     ∑ᶠ (gᵢ : (D ⊗[F] FiniteAdeleRing (𝓞 F) F)ˣ) (_ : gᵢ ∈ Quotient.out '' (U1diagU1 r S α hα)),
