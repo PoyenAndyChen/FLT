@@ -45,7 +45,7 @@ State them first.
 
 namespace AutomorphicForm
 
-def GLn.Weight.IsTrivial {n : ℕ} (ρ : Weight n) : Prop := sorry -- (ρ = trivial 1d rep)
+def GLn.Weight.IsTrivial {n : ℕ} (ρ : Weight n) : Prop := ρ.w.rho = 1
 
 open GLn
 
