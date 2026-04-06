@@ -7,6 +7,7 @@ import Mathlib.Topology.Homeomorph.Defs
 import Mathlib.Topology.Algebra.ContinuousMonoidHom
 import FLT.Hacks.RightActionInstances
 import FLT.NumberField.Completion.Finite
+import FLT.Mathlib.NumberTheory.NumberField.FiniteAdeleRing
 /-!
 
 # Definitions of various compact open subgrups of Dˣ and GL₂(𝔸_F^∞)
@@ -342,11 +343,100 @@ noncomputable def GL2.TameLevel (S : Finset (HeightOneSpectrum (𝓞 F))) :
 
 variable (S : Finset (HeightOneSpectrum (𝓞 F)))
 
-theorem GL2.TameLevel.isOpen : IsOpen (GL2.TameLevel S).carrier :=
-  sorry
+-- Helper: GL2.toAdicCompletion v is continuous
+private theorem GL2.toAdicCompletion.continuous (v : HeightOneSpectrum (𝓞 F)) :
+    Continuous (GL2.toAdicCompletion v :
+      GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) → GL (Fin 2) (v.adicCompletion F)) :=
+  Continuous.units_map _
+    (continuous_id.matrix_map (RestrictedProduct.continuous_eval v))
 
-theorem GL2.TameLevel.isCompact : IsCompact (GL2.TameLevel S).carrier :=
-  sorry
+-- Helper: evaluation in the restricted product agrees with GL2.toAdicCompletion
+private theorem GL2.restrictedProduct_eval (v : HeightOneSpectrum (𝓞 F))
+    (x : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F)) :
+    (GL2.restrictedProduct x).1 v = GL2.toAdicCompletion v x := by
+  ext i j
+  rfl
+
+-- The subgroup (M2.localFullLevel v).units equals GL2.localFullLevel v
+-- (they have the same carrier by localFullLevel_carrier_eq)
+private theorem GL2.localFullLevel_eq_units (v : HeightOneSpectrum (𝓞 F)) :
+    GL2.localFullLevel v = (M2.localFullLevel v).units :=
+  SetLike.ext' (GL2.localFullLevel_carrier_eq v)
+
+-- Helper: the "full level" set equals preimage through restrictedProduct of forall-mem set
+private theorem GL2.fullLevel_eq_preimage :
+    {x : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) |
+      ∀ v, GL2.toAdicCompletion v x ∈ GL2.localFullLevel v} =
+    GL2.restrictedProduct ⁻¹'
+      {f | ∀ v, f.1 v ∈ (M2.localFullLevel v).units} := by
+  ext x
+  simp only [Set.mem_setOf_eq, Set.mem_preimage]
+  exact forall_congr' fun v => by
+    rw [← GL2.restrictedProduct_eval, GL2.localFullLevel_eq_units]
+
+-- Helper: the "full level" set is open
+private theorem GL2.fullLevel_isOpen :
+    IsOpen {x : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) |
+      ∀ v, GL2.toAdicCompletion v x ∈ GL2.localFullLevel v} := by
+  rw [GL2.fullLevel_eq_preimage]
+  exact (RestrictedProduct.isOpen_forall_mem
+    (fun v => Submonoid.isOpen_units (M2.localFullLevel.isOpen v))).preimage
+    GL2.restrictedProduct.continuous
+
+-- Helper: the "full level" set is compact
+private theorem GL2.fullLevel_isCompact :
+    IsCompact {x : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) |
+      ∀ v, GL2.toAdicCompletion v x ∈ GL2.localFullLevel v} := by
+  rw [GL2.fullLevel_eq_preimage]
+  -- It suffices to show the target set in the restricted product is compact
+  -- (preimage under a homeomorphism of a compact set is compact)
+  apply (GL2.restrictedProduct.toHomeomorph).isClosedEmbedding.isCompact_preimage
+  -- Need CompactSpace on each factor for Tychonoff
+  haveI : ∀ v : HeightOneSpectrum (𝓞 F),
+      CompactSpace ↥((M2.localFullLevel v).units :
+        Subgroup (GL (Fin 2) (v.adicCompletion F))) := fun v =>
+    isCompact_iff_compactSpace.mp ((GL2.localFullLevel_eq_units v) ▸
+      GL2.localFullLevel.isCompact v)
+  -- The set {f | ∀ v, f v ∈ A v} = range(structureMap), which is compact image of compact domain
+  suffices IsCompact (Set.range (RestrictedProduct.structureMap
+    (fun v => GL (Fin 2) (v.adicCompletion F))
+    (fun v => ((M2.localFullLevel v).units :
+      Subgroup (GL (Fin 2) (v.adicCompletion F)))) Filter.cofinite)) by
+    rwa [RestrictedProduct.range_structureMap] at this
+    -- The goal after rwa should match since range_structureMap uses SetLike.mem_coe
+  exact isCompact_range RestrictedProduct.isEmbedding_structureMap.continuous
+
+private theorem GL2.tameLevel_isOpen_aux :
+    IsOpen {x : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) |
+      ∀ v ∈ S, GL2.toAdicCompletion v x ∈ GL2.localTameLevel v} := by
+  have : {x : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) |
+      ∀ v ∈ S, GL2.toAdicCompletion v x ∈ GL2.localTameLevel v} =
+    ⋂ v ∈ (S : Set _), (GL2.toAdicCompletion v) ⁻¹' (GL2.localTameLevel v).carrier := by
+    ext x; simp
+  rw [this]
+  exact S.finite_toSet.isOpen_biInter fun v _ =>
+    (GL2.localTameLevel.isOpen v).preimage (GL2.toAdicCompletion.continuous v)
+
+private theorem GL2.tameLevel_isClosed_aux :
+    IsClosed {x : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) |
+      ∀ v ∈ S, GL2.toAdicCompletion v x ∈ GL2.localTameLevel v} := by
+  have : {x : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) |
+      ∀ v ∈ S, GL2.toAdicCompletion v x ∈ GL2.localTameLevel v} =
+    ⋂ v ∈ (S : Set _), (GL2.toAdicCompletion v) ⁻¹' (GL2.localTameLevel v).carrier := by
+    ext x; simp
+  rw [this]
+  exact isClosed_biInter fun v _ =>
+    (GL2.localTameLevel.isCompact v).isClosed.preimage (GL2.toAdicCompletion.continuous v)
+
+theorem GL2.TameLevel.isOpen : IsOpen (GL2.TameLevel S).carrier := by
+  apply IsOpen.inter
+  · exact GL2.fullLevel_isOpen
+  · exact GL2.tameLevel_isOpen_aux S
+
+theorem GL2.TameLevel.isCompact : IsCompact (GL2.TameLevel S).carrier := by
+  apply IsCompact.of_isClosed_subset GL2.fullLevel_isCompact
+  · exact IsClosed.inter GL2.fullLevel_isCompact.isClosed (GL2.tameLevel_isClosed_aux S)
+  · intro x hx; exact hx.1
 
 open scoped TensorProduct.RightActions in
 /-- The subgroup of `(D ⊗ 𝔸_F^∞)ˣ` corresponding to the subgroup `U₁(S)` of `GL₂(𝔸_F^∞)`
