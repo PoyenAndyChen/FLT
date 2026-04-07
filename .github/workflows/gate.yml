@@ -48,8 +48,11 @@ jobs:
 
             // Match top-level declarations only (no leading whitespace).
             // In-proof `have` / `let` inside `by` blocks are indented, so they won't match.
-            const declKeywords = /^[+-](theorem|lemma|def|instance|structure|class|inductive|abbrev)\s/;
-            const sorryPattern = /^[+-].*\bsorry\b/;
+            // Matches: theorem, lemma, def, instance, etc. with optional modifiers
+            // (private, protected, noncomputable) and optional attributes (@[...]).
+            const declKeywords = /^[+-](?:@\[[^\]]*\]\s*)?(?:(?:private|protected|noncomputable|scoped|partial|unsafe)\s+)*(theorem|lemma|def|instance|structure|class|inductive|abbrev|axiom|opaque)\s/;
+            // Only match sorry outside of comments (line comments start with `--`)
+            const sorryPattern = /^[+-](?!\s*--).*\bsorry\b/;
             const importPattern = /^[+-]\s*import\s/;
 
             for (const file of files.data) {
@@ -98,8 +101,8 @@ jobs:
             if (!isPureFill) {
               const reviews = await github.rest.pulls.listReviews({ owner, repo, pull_number: prNumber });
 
-              // Extract author's agent name from PR body
-              const authorAgentMatch = (pr.body || '').match(/PolyProof-Agent:\s*(\S+)/);
+              // Extract author's agent name from PR body (strict slug chars)
+              const authorAgentMatch = (pr.body || '').match(/PolyProof-Agent:\s*([a-zA-Z0-9_-]+)/);
               const authorAgent = authorAgentMatch?.[1]?.toLowerCase();
 
               // Keep latest review per user
@@ -108,14 +111,24 @@ jobs:
                 latestByUser[review.user.login] = review;
               }
 
-              // Count valid approvals: APPROVED state + reviewer agent != author agent
+              // Count valid approvals: APPROVED state + reviewer identifies as a different agent.
+              // Reviews MUST include "Reviewed by @agent-name" in the body — otherwise we can't
+              // verify it's not a self-approval (all agents share one GitHub account).
               let validApprovals = 0;
               for (const review of Object.values(latestByUser)) {
                 if (review.state !== 'APPROVED') continue;
-                const reviewerAgentMatch = (review.body || '').match(/Reviewed by\s+@(\S+)/i);
+                const reviewerAgentMatch = (review.body || '').match(/Reviewed by\s+@([a-zA-Z0-9_-]+)/i);
                 const reviewerAgent = reviewerAgentMatch?.[1]?.toLowerCase();
+                // Reject reviews without the identity tag — we can't verify they're not self-approvals
+                if (!reviewerAgent) {
+                  core.info(`Review by ${review.user.login} rejected: missing "Reviewed by @agent-name" tag in body`);
+                  continue;
+                }
                 // Reject self-review: reviewer agent matches author agent
-                if (authorAgent && reviewerAgent && reviewerAgent === authorAgent) continue;
+                if (authorAgent && reviewerAgent === authorAgent) {
+                  core.info(`Review by ${review.user.login} rejected: reviewer agent matches author agent (${authorAgent})`);
+                  continue;
+                }
                 validApprovals++;
               }
 
@@ -180,10 +193,10 @@ jobs:
 
             core.info(`Found merged PR #${pr.number}: ${pr.title}`);
 
-            // Extract PolyProof tags from PR body
+            // Extract PolyProof tags from PR body (strict slug chars to avoid trailing garbage)
             const body = pr.body || '';
-            const agentMatch = body.match(/PolyProof-Agent:\s*(\S+)/);
-            const threadMatch = body.match(/PolyProof-Thread:\s*(\S+)/);
+            const agentMatch = body.match(/PolyProof-Agent:\s*([a-zA-Z0-9_-]+)/);
+            const threadMatch = body.match(/PolyProof-Thread:\s*([a-zA-Z0-9._-]+)/);
             const agentName = agentMatch ? agentMatch[1] : '';
             const threadTopic = threadMatch ? threadMatch[1] : '';
 
@@ -200,10 +213,12 @@ jobs:
               return;
             }
 
-            // Retry helper: 3 attempts with exponential backoff
+            // Retry helper: 3 attempts with exponential backoff, 15s timeout per attempt
             async function postWithRetry(path, payload) {
               const url = `${apiUrl}${path}`;
               for (let i = 0; i < 3; i++) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
                 try {
                   const response = await fetch(url, {
                     method: 'POST',
@@ -212,14 +227,22 @@ jobs:
                       'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(payload),
+                    signal: controller.signal,
                   });
+                  clearTimeout(timeoutId);
                   const text = await response.text();
                   if (response.ok) {
                     core.info(`POST ${path}: ${response.status} ${text}`);
                     return true;
                   }
+                  // Don't retry 4xx (client errors) — they won't succeed on retry
+                  if (response.status >= 400 && response.status < 500) {
+                    core.warning(`POST ${path}: ${response.status} ${text} (not retrying 4xx)`);
+                    return false;
+                  }
                   core.warning(`POST ${path} attempt ${i+1}: ${response.status} ${text}`);
                 } catch (e) {
+                  clearTimeout(timeoutId);
                   core.warning(`POST ${path} attempt ${i+1}: ${e.message}`);
                 }
                 if (i < 2) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));

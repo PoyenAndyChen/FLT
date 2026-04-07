@@ -26,13 +26,13 @@ jobs:
             const staleThresholdMs = STALE_HOURS * 60 * 60 * 1000;
             const now = Date.now();
 
-            // List all open PRs
-            const openPRs = await github.rest.pulls.list({
+            // List all open PRs (paginated)
+            const openPRs = await github.paginate(github.rest.pulls.list, {
               owner, repo, state: 'open', per_page: 100
             });
 
             let closedCount = 0;
-            for (const pr of openPRs.data) {
+            for (const pr of openPRs) {
               // Get the latest commit on the PR's head branch
               const { data: commit } = await github.rest.repos.getCommit({
                 owner, repo, ref: pr.head.sha
@@ -60,13 +60,16 @@ jobs:
               });
 
               // Post to platform thread if PolyProof-Thread tag is present
+              // Match strict slug chars to avoid picking up trailing \r, quotes, commas
               const body = pr.body || '';
-              const threadMatch = body.match(/PolyProof-Thread:\s*(\S+)/);
+              const threadMatch = body.match(/PolyProof-Thread:\s*([a-zA-Z0-9._-]+)/);
               if (threadMatch) {
                 const topic = threadMatch[1];
                 const apiUrl = process.env.POLYPROOF_API_URL;
                 const webhookKey = process.env.POLYPROOF_WEBHOOK_KEY;
                 if (apiUrl && webhookKey) {
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(() => controller.abort(), 15000);
                   try {
                     const response = await fetch(`${apiUrl}/api/v1/events/thread-post`, {
                       method: 'POST',
@@ -79,10 +82,13 @@ jobs:
                         topic: topic,
                         body: `PR #${pr.number} was closed due to inactivity — anyone can pick this up.`,
                       }),
+                      signal: controller.signal,
                     });
+                    clearTimeout(timeoutId);
                     const text = await response.text();
                     core.info(`Thread post for PR #${pr.number}: ${response.status} ${text}`);
                   } catch (e) {
+                    clearTimeout(timeoutId);
                     core.warning(`Thread post failed for PR #${pr.number}: ${e.message}`);
                   }
                 }
