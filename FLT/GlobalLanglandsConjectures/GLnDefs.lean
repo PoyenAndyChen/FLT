@@ -177,7 +177,17 @@ def actionTensorCAlg'2 :
   (actionTensorCAlg' G E).comp (SubalgebraClass.val _)
 
 instance : Module ℝ C^∞⟮𝓘(ℝ, E), G; 𝓘(ℝ, ℝ), ℝ⟯ := inferInstance
-instance : Module ℂ C^∞⟮𝓘(ℝ, E), G; 𝓘(ℝ, ℂ), ℂ⟯ := sorry
+instance : Module ℂ C^∞⟮𝓘(ℝ, E), G; 𝓘(ℝ, ℂ), ℂ⟯ := by
+  have smul_smooth : ∀ (c : ℂ) (f : C^∞⟮𝓘(ℝ, E), G; 𝓘(ℝ, ℂ), ℂ⟯),
+      ContMDiff 𝓘(ℝ, E) 𝓘(ℝ, ℂ) ∞ (c • (f : G → ℂ)) := by
+    intro c f
+    exact ((c • ContinuousLinearMap.id ℝ ℂ).contMDiff (n := ∞)).comp f.contMDiff
+  letI : SMul ℂ C^∞⟮𝓘(ℝ, E), G; 𝓘(ℝ, ℂ), ℂ⟯ :=
+    ⟨fun c f => ⟨c • (f : G → ℂ), smul_smooth c f⟩⟩
+  exact Function.Injective.module ℂ
+    (ContMDiffMap.coeFnAddMonoidHom :
+      C^∞⟮𝓘(ℝ, E), G; 𝓘(ℝ, ℂ), ℂ⟯ →+ G → ℂ)
+    ContMDiffMap.coe_injective (fun _ _ => rfl)
 
 def Alg := UniversalEnvelopingAlgebra ℂ (ℂ ⊗[ℝ] LeftInvariantDerivation 𝓘(ℝ, E) G)
 instance : Semiring (Alg G E) := inferInstanceAs (Semiring (UniversalEnvelopingAlgebra ..))
