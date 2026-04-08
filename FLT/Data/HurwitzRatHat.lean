@@ -319,10 +319,7 @@ lemma completed_units (z : D^ˣ) : ∃ (u : Dˣ) (v : 𝓞^ˣ), (z : D^) = j₁ 
     apply hI_ne_bot
     rw [hα_eq, h, Submodule.span_singleton_eq_bot.mpr rfl]
   -- α has positive norm
-  have hnorm_pos : (Hurwitz.norm α) > 0 := by
-    have h1 : Hurwitz.norm α ≠ 0 := fun h => hα_ne_zero ((Hurwitz.norm_eq_zero α).mp h)
-    have h2 : 0 ≤ Hurwitz.norm α := Hurwitz.norm_nonneg α
-    omega
+  have hnorm_pos : (Hurwitz.norm α) > 0 := Hurwitz.norm_pos_of_ne_zero hα_ne_zero
   -- Punt the rest with sorry — see thread for the T-trick continuation
   sorry
 
