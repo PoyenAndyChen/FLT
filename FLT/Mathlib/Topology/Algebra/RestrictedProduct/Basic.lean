@@ -200,6 +200,18 @@ lemma mulSingle_eq_same [∀ i, One (G i)] [∀ i, OneMemClass (S i) (G i)] (i :
     mulSingle A i r i = r :=
   Pi.mulSingle_eq_same i r
 
+/-- `RestrictedProduct` analog of `Pi.mulSingle_commute`: elements supported at
+distinct indices commute. Useful for disjoint-support arguments in the Hecke
+operator commutativity chain. -/
+@[to_additive /-- Additive analog of `RestrictedProduct.mulSingle_commute`. -/]
+lemma mulSingle_commute [∀ i, MulOneClass (G i)] [∀ i, OneMemClass (S i) (G i)]
+    [∀ i, MulMemClass (S i) (G i)] :
+    Pairwise fun i j => ∀ (x : G i) (y : G j),
+      Commute (mulSingle A i x) (mulSingle A j y) := by
+  intro i j hij x y
+  apply Subtype.ext
+  exact Pi.mulSingle_commute hij x y
+
 end single
 
 section components
