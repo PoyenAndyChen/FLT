@@ -287,6 +287,83 @@ lemma unipotent_mul_diag_lift_mul {β : v.adicCompletionIntegers F} (hβ : β �
   congr 3
   exact Local.GL2.unipotent_mul_diag_mul_unipotent_mul_diag α hα hβ s t
 
+omit [IsTotallyReal F] in
+/-- `U1`-invariance of `unipotent_mul_diag_lift` action: if `t₁ - t₂ ∈ (γ)`, then
+`unipotent_mul_diag_lift γ t₁ • a = unipotent_mul_diag_lift γ t₂ • a` for any
+`U1 r S`-fixed automorphic form `a`. -/
+lemma unipotent_mul_diag_lift_smul_eq {γ : v.adicCompletionIntegers F} (hγ : γ ≠ 0)
+    {t₁ t₂ : v.adicCompletionIntegers F}
+    (h : t₁ - t₂ ∈ Ideal.span ({γ} : Set (v.adicCompletionIntegers F)))
+    (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
+    unipotent_mul_diag_lift r γ hγ t₁ • a.1 =
+      unipotent_mul_diag_lift r γ hγ t₂ • a.1 := by
+  -- Strategy: write `lift t₁ = lift t₂ * u''` where `u'' = (lift t₂)⁻¹ * lift t₁ ∈ U1 r S`.
+  -- Then `lift t₁ • a = lift t₂ • (u'' • a) = lift t₂ • a` using `a.2` on `u''`.
+  set u'' : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+    (unipotent_mul_diag_lift r γ hγ t₂)⁻¹ * unipotent_mul_diag_lift r γ hγ t₁ with hu''_def
+  -- Obtain the ring element `m` with `t₁ - t₂ = m * γ`.
+  obtain ⟨m, hm⟩ := Ideal.mem_span_singleton'.mp h
+  -- Show `u''` is in `U1 r S` by exhibiting a witness in `GL2.TameLevel S`.
+  have hu'' : u'' ∈ U1 r S := by
+    refine Subgroup.mem_map.mpr ⟨?_, ?_, ?_⟩
+    · -- The witness: the unit built from `mulSingle v (unipotent ↑m)`.
+      exact FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ _
+          (Matrix.GeneralLinearGroup.GL2.unipotent (m : adicCompletion F v)))
+    · -- The witness is in `GL2.TameLevel S`.
+      refine ⟨?_, ?_⟩
+      · intro w
+        -- At every place `w`, the element is in `localFullLevel w`.
+        by_cases hwv : w = v
+        · subst hwv
+          -- The image at `w = v` is `unipotent ↑m`, which is in `localFullLevel`.
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w _]
+          exact (Local.GL2.unipotent_mem_U1 (v := w) m).1
+        · -- The image at `w ≠ v` is `1`, which is in `localFullLevel`.
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+          exact (GL2.localFullLevel w).one_mem
+      · intro w hwS
+        by_cases hwv : w = v
+        · subst hwv
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w _]
+          exact Local.GL2.unipotent_mem_U1 (v := w) m
+        · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+          exact (GL2.localTameLevel w).one_mem
+    · -- Applying `Units.map r.symm.toMonoidHom` to the witness yields `u''`.
+      change Units.map r.symm.toMonoidHom _ = u''
+      rw [hu''_def, unipotent_mul_diag_lift, unipotent_mul_diag_lift]
+      change _ = (Units.mapEquiv r.symm.toMulEquiv _)⁻¹ *
+        (Units.mapEquiv r.symm.toMulEquiv _)
+      rw [← map_inv, ← map_mul]
+      change Units.mapEquiv r.symm.toMulEquiv _ =
+        Units.mapEquiv r.symm.toMulEquiv _
+      congr 1
+      rw [← map_inv, ← map_mul, ← RestrictedProduct.mulSingle_inv,
+        ← RestrictedProduct.mulSingle_mul]
+      congr 1
+      rw [Local.GL2.unipotent_mul_diag_inv_mul_unipotent_mul_diag γ hγ t₂ t₁]
+      congr 1
+      -- Need: `(γ : adicCompletion F v)⁻¹ * (t₁ + -t₂) = m` (in `adicCompletion F v`).
+      have hmval : ((t₁ : adicCompletion F v) + -(t₂ : adicCompletion F v)) =
+          ((γ : adicCompletion F v)) * (m : adicCompletion F v) := by
+        have hh : ((m : adicCompletion F v)) * (γ : adicCompletion F v) =
+            (t₁ : adicCompletion F v) - (t₂ : adicCompletion F v) := by
+          have := congrArg (fun x : v.adicCompletionIntegers F =>
+            (x : adicCompletion F v)) hm
+          push_cast at this
+          exact this
+        linear_combination -hh
+      have hγne : (γ : adicCompletion F v) ≠ 0 := by exact_mod_cast hγ
+      rw [hmval, ← mul_assoc, inv_mul_cancel₀ hγne, one_mul]
+  -- Rewrite `lift t₁ = lift t₂ * u''`.
+  have hlift : unipotent_mul_diag_lift r γ hγ t₁ =
+      unipotent_mul_diag_lift r γ hγ t₂ * u'' := by
+    rw [hu''_def, ← mul_assoc, mul_inv_cancel, one_mul]
+  rw [hlift, mul_smul]
+  -- Use `U1`-invariance of `a`.
+  congr 1
+  exact a.2 ⟨u'', hu''⟩
+
 lemma U_mul_aux {v : HeightOneSpectrum (𝓞 F)}
     {α β : v.adicCompletionIntegers F} (hα : α ≠ 0) (hβ : β ≠ 0)
     (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
@@ -294,8 +371,57 @@ lemma U_mul_aux {v : HeightOneSpectrum (𝓞 F)}
       (j : (adicCompletionIntegers F v) ⧸ Ideal.span {β}),
       unipotent_mul_diag r α hα i • unipotent_mul_diag r β hβ j • a.1 =
     ∑ᶠ (k : (adicCompletionIntegers F v) ⧸ Ideal.span {α * β}),
-      unipotent_mul_diag r (α * β) (hα.mul hβ) k • a.1 :=
-  sorry
+      unipotent_mul_diag r (α * β) (hα.mul hβ) k • a.1 := by
+  -- All three quotients are finite (deduced from `quot_top_finite`).
+  have hfinα : Finite (v.adicCompletionIntegers F ⧸ Ideal.span ({α} : Set _)) := by
+    have := (quot_top_finite r α hα)
+    rw [Set.top_eq_univ, Set.finite_univ_iff] at this; exact this
+  have hfinβ : Finite (v.adicCompletionIntegers F ⧸ Ideal.span ({β} : Set _)) := by
+    have := (quot_top_finite r β hβ)
+    rw [Set.top_eq_univ, Set.finite_univ_iff] at this; exact this
+  have hfinαβ :
+      Finite (v.adicCompletionIntegers F ⧸ Ideal.span ({α * β} : Set _)) := by
+    have := (quot_top_finite r (α * β) (mul_ne_zero hα hβ))
+    rw [Set.top_eq_univ, Set.finite_univ_iff] at this; exact this
+  -- Combine the double finsum into one over the product, then transport via the bijection
+  -- `prodEquivSpanMul`, and identify summands using the U1-invariance lemma.
+  set Qα := v.adicCompletionIntegers F ⧸ Ideal.span ({α} : Set _) with hQα
+  set Qβ := v.adicCompletionIntegers F ⧸ Ideal.span ({β} : Set _) with hQβ
+  rw [show (∑ᶠ (i : Qα) (j : Qβ),
+      unipotent_mul_diag r α hα i • unipotent_mul_diag r β hβ j • a.1) =
+    ∑ᶠ (p : Qα × Qβ),
+      unipotent_mul_diag r α hα p.1 • unipotent_mul_diag r β hβ p.2 • a.1 from
+    (finsum_curry (α := Qα) (β := Qβ)
+      (fun p => unipotent_mul_diag r α hα p.1 • unipotent_mul_diag r β hβ p.2 • a.1)
+      (Set.toFinite _)).symm]
+  rw [← finsum_comp_equiv (Ideal.Quotient.prodEquivSpanMul (β := β) hα)
+    (f := fun (k : v.adicCompletionIntegers F ⧸ Ideal.span {α * β}) =>
+      unipotent_mul_diag r (α * β) (hα.mul hβ) k • a.1)]
+  refine finsum_congr (fun p => ?_)
+  obtain ⟨i, j⟩ := p
+  -- LHS: `(unipotent_mul_diag α i * unipotent_mul_diag β j) • a.1
+  --      = unipotent_mul_diag_lift (α*β) (α * j.out + i.out) • a.1`.
+  rw [unipotent_mul_diag_eq_lift, unipotent_mul_diag_eq_lift, ← mul_smul,
+    unipotent_mul_diag_lift_mul, unipotent_mul_diag_eq_lift]
+  -- Use U1-invariance: the two lifts differ by an element of `(α * β)`.
+  apply unipotent_mul_diag_lift_smul_eq
+  -- The bijection sends `(i,j) ↦ Ideal.Quotient.mk (i.out + α * j.out)`.
+  change (α * j.out + i.out) -
+    ((Ideal.Quotient.prodEquivSpanMul (β := β) hα) (i, j)).out ∈
+      Ideal.span ({α * β} : Set _)
+  have hkmk : (Ideal.Quotient.prodEquivSpanMul (β := β) hα) (i, j) =
+      Ideal.Quotient.mk (Ideal.span ({α * β} : Set _)) (i.out + α * j.out) := by
+    unfold Ideal.Quotient.prodEquivSpanMul
+    rfl
+  have h1 :
+      ((Ideal.Quotient.prodEquivSpanMul (β := β) hα) (i, j)).out - (i.out + α * j.out)
+        ∈ Ideal.span ({α * β} : Set _) := by
+    rw [← Ideal.Quotient.eq, Ideal.Quotient.mk_out, hkmk]
+  have heq : (α * j.out + i.out) -
+      ((Ideal.Quotient.prodEquivSpanMul (β := β) hα) (i, j)).out =
+      -(((Ideal.Quotient.prodEquivSpanMul (β := β) hα) (i, j)).out -
+        (i.out + α * j.out)) := by ring
+  rw [heq]; exact neg_mem h1
 
 open AbstractHeckeOperator in
 lemma U_mul {v : HeightOneSpectrum (𝓞 F)}

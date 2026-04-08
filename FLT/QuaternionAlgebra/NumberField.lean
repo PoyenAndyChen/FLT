@@ -286,6 +286,42 @@ noncomputable def GL2.restrictedProduct :
       [(GL (Fin 2) (v.adicCompletion F)), (M2.localFullLevel v).units] :=
   ContinuousMulEquiv.restrictedProductMatrixUnits (NumberField.isOpenAdicCompletionIntegers F)
 
+/-- The "value" form of the bridging computation: at every entry `(i,j)` and place `w`,
+the matrix entry of `GL2.toAdicCompletion w (rp.symm x)` equals the corresponding
+entry of `(x w).val`. -/
+lemma GL2.toAdicCompletion_restrictedProduct_symm_val_apply
+    (w : HeightOneSpectrum (𝓞 F))
+    (x : Πʳ (v : HeightOneSpectrum (𝓞 F)),
+      [(GL (Fin 2) (v.adicCompletion F)), (M2.localFullLevel v).units])
+    (i j : Fin 2) :
+    ((GL2.toAdicCompletion w
+      (FiniteAdeleRing.GL2.restrictedProduct.symm x)).val i j) = (x w).val i j := by
+  rfl
+
+/-- Bridging lemma: applying `GL2.toAdicCompletion w` to the embedding of a single
+local element `g_loc` at place `v` via the restricted product isomorphism gives
+`g_loc` if `w = v` and `1` otherwise. -/
+lemma GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same
+    [DecidableEq (HeightOneSpectrum (𝓞 F))]
+    (v : HeightOneSpectrum (𝓞 F)) (g_loc : GL (Fin 2) (v.adicCompletion F)) :
+    GL2.toAdicCompletion v
+      (FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ v g_loc)) = g_loc := by
+  ext i j
+  rw [GL2.toAdicCompletion_restrictedProduct_symm_val_apply,
+    RestrictedProduct.mulSingle_eq_same]
+
+lemma GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne
+    [DecidableEq (HeightOneSpectrum (𝓞 F))]
+    {w v : HeightOneSpectrum (𝓞 F)} (hwv : w ≠ v)
+    (g_loc : GL (Fin 2) (v.adicCompletion F)) :
+    GL2.toAdicCompletion w
+      (FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ v g_loc)) = 1 := by
+  ext i j
+  rw [GL2.toAdicCompletion_restrictedProduct_symm_val_apply,
+    RestrictedProduct.mulSingle_eq_of_ne _ _ hwv]
+
 end IsDedekindDomain.FiniteAdeleRing
 
 namespace IsDedekindDomain.HeightOneSpectrum
