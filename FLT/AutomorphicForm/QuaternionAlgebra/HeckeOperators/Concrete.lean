@@ -212,8 +212,54 @@ noncomputable def U1diagU1 :
   QuotientGroup.mk '' ((U1 r S) * {diag r α hα})
 
 theorem bijOn_unipotent_mul_diagU1_U1diagU1 :
-    (unipotent_mul_diag_image r α hα).BijOn QuotientGroup.mk (U1diagU1 r S α hα) :=
-  sorry -- global double coset decomposition
+    (unipotent_mul_diag_image r α hα).BijOn QuotientGroup.mk (U1diagU1 r S α hα) := by
+  refine ⟨?_, ?_, ?_⟩
+  · -- MapsTo: each `unipotent_mul_diag r α hα i` can be written as `u_glob * diag r α hα`
+    -- for some `u_glob ∈ U1 r S`, where `u_glob` is the image of a v-supported unipotent
+    -- matrix `!![1, (out i); 0, 1]` through the restricted product + rigidification.
+    rintro _ ⟨i, _, rfl⟩
+    -- Define the v-supported global unipotent element.
+    set u_glob : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+      Units.mapEquiv r.symm.toMulEquiv
+        (FiniteAdeleRing.GL2.restrictedProduct.symm
+          (RestrictedProduct.mulSingle _ v
+            (Matrix.GeneralLinearGroup.GL2.unipotent
+              ((Quotient.out i : adicCompletionIntegers F v) :
+                adicCompletion F v)))) with hu_glob_def
+    -- Show `u_glob ∈ U1 r S`.
+    have hu_glob_mem : u_glob ∈ U1 r S := by
+      refine Subgroup.mem_map.mpr ⟨_, ?_, rfl⟩
+      refine ⟨fun w => ?_, fun w _ => ?_⟩
+      · by_cases hwv : w = v
+        · subst hwv
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w _]
+          exact (Local.GL2.unipotent_mem_U1 (v := w) (Quotient.out i)).1
+        · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+          exact (GL2.localFullLevel w).one_mem
+      · by_cases hwv : w = v
+        · subst hwv
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w _]
+          exact Local.GL2.unipotent_mem_U1 (v := w) (Quotient.out i)
+        · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+          exact (GL2.localTameLevel w).one_mem
+    -- Show `unipotent_mul_diag r α hα i = u_glob * diag r α hα`.
+    have h_eq : unipotent_mul_diag r α hα i = u_glob * diag r α hα := by
+      rw [hu_glob_def]
+      unfold unipotent_mul_diag diag
+      rw [← map_mul, ← map_mul, ← RestrictedProduct.mulSingle_mul]
+      rfl
+    refine ⟨u_glob * diag r α hα, Set.mul_mem_mul hu_glob_mem rfl, ?_⟩
+    rw [← h_eq]
+  · -- InjOn: global double coset decomposition reduces to the local one at v.
+    -- (This requires transferring an equality in the global quotient to an equality
+    -- in the local quotient via `GL2.toAdicCompletion v`.)
+    sorry
+  · -- SurjOn: use `GL2.TameLevel.exists_split_at` to split `u ∈ U1 r S` as `U_v * U_v'`
+    -- where `U_v` is supported at v and `U_v'` is 1 at v. Then `U_v'` commutes with
+    -- `diag r α hα` (both concentrated at disjoint places), so
+    -- `mk (u * diag r α hα) = mk (U_v * diag r α hα)`. The latter reduces to the local
+    -- surjOn result at v.
+    sorry
 
 lemma unipotent_mul_diag_image_finite :
     (unipotent_mul_diag_image r α hα).Finite := by
