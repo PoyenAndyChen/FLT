@@ -225,6 +225,7 @@ def smoothComplexIm :
 -- Scalar multiplication on `C^∞(G, ℂ)` by a complex constant agrees with pointwise
 -- multiplication.
 set_option linter.unusedSectionVars false in
+@[nolint unusedArguments]
 lemma smoothComplex_smul_apply (c : ℂ) (f : C^∞⟮𝓘(ℝ, E), G; 𝓘(ℝ, ℂ), ℂ⟯) (x : G) :
     (c • f) x = c * f x := rfl
 
