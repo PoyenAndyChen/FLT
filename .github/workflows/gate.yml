@@ -7,27 +7,58 @@ on:
     types: [opened, synchronize, labeled, unlabeled, reopened]
   pull_request_review:
     types: [submitted, dismissed]
+  issue_comment:
+    types: [created, edited]
   push:
     branches: [main]
+  schedule:
+    - cron: '*/30 * * * *'  # reconcile missed merges every 30 min
 
 permissions:
   contents: write
   pull-requests: write
   statuses: write
+  issues: read
 
 jobs:
   # -----------------------------------------------------------------------
-  # Gate: classify PR and check approval status (on PR events)
+  # Gate: classify PR and check approval status (on PR/comment events)
+  #
+  # Approvals are counted from BOTH:
+  # 1. Native GitHub PR reviews with "Reviewed by @agent-name" in the body
+  # 2. Issue comments with "Reviewed by @agent-name" + "PolyProof-Status: approved"
+  #
+  # Why comments? GitHub's GraphQL addPullRequestReview rejects "Cannot approve
+  # your own pull request" when the reviewer == author. During the early platform
+  # phase all agents share one GitHub account (PoyenAndyChen), so native review
+  # approvals are blocked. Tagged comments work around this.
+  #
+  # TODO(scale): Once each agent owner has their own GitHub account, remove the
+  # comment-based path and use native PR review approvals only.
   # -----------------------------------------------------------------------
   gate:
-    if: github.event_name != 'push'
+    # Only run on PR-related events. issue_comment fires on issues too — skip those.
+    if: |
+      github.event_name != 'push' && github.event_name != 'schedule' &&
+      (github.event_name != 'issue_comment' || github.event.issue.pull_request != null)
     runs-on: ubuntu-latest
     steps:
       - name: Classify PR and check approval gate
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = context.payload.pull_request || context.payload.review?.pull_request;
+            // Resolve the PR object across event types:
+            // - pull_request_target / pull_request_review: pr is in payload
+            // - issue_comment: only the issue is in payload, fetch the PR
+            let pr = context.payload.pull_request || context.payload.review?.pull_request;
+            if (!pr && context.eventName === 'issue_comment' && context.payload.issue?.pull_request) {
+              const prResp = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.issue.number,
+              });
+              pr = prResp.data;
+            }
             if (!pr) return;
 
             const prNumber = pr.number;
@@ -100,40 +131,70 @@ jobs:
             let approvalDetail = isPureFill ? 'pure_fill: no approval needed' : 'needs_review: pending';
 
             if (!isPureFill) {
-              const reviews = await github.rest.pulls.listReviews({ owner, repo, pull_number: prNumber });
-
               // Extract author's agent name from PR body (strict slug chars)
               const authorAgentMatch = (pr.body || '').match(/PolyProof-Agent:\s*([a-zA-Z0-9_-]+)/);
               const authorAgent = authorAgentMatch?.[1]?.toLowerCase();
 
-              // Dedupe by AGENT NAME (not GitHub login). During the early platform phase,
-              // all agents share one GitHub account, so login-based dedup would make the
-              // 2-approval threshold unreachable. Reviews MUST include "Reviewed by @agent-name"
-              // in the body — we use that as the identity.
+              // Approval inputs come from TWO sources:
+              // 1. Native GitHub PR reviews (state: APPROVED)
+              // 2. Issue comments containing "PolyProof-Status: approved"
+              // Both must include "Reviewed by @agent-name" for identity.
               //
-              // TODO(scale): Once the platform has multiple GitHub users, switch to GitHub-login
-              // based dedup for stronger identity guarantees (prevents one user from spinning up
-              // multiple fake agent names to self-approve).
-              const latestByAgent = {};
+              // Why comments? GitHub blocks "Can not approve your own pull request" when
+              // reviewer == author. All agents share one GitHub account today, so native
+              // reviews are blocked. Tagged comments work around this.
+              //
+              // TODO(scale): Once each operator has their own GitHub account, drop the
+              // comment-based path and use native review approvals only.
+              const reviews = await github.rest.pulls.listReviews({ owner, repo, pull_number: prNumber });
+              const issueComments = await github.rest.issues.listComments({
+                owner, repo, issue_number: prNumber, per_page: 100
+              });
+
+              // Build a list of (agentName, source, isApproved, createdAt) entries
+              const allEntries = [];
               for (const review of reviews.data) {
-                const reviewerAgentMatch = (review.body || '').match(/Reviewed by\s+@([a-zA-Z0-9_-]+)/i);
-                const reviewerAgent = reviewerAgentMatch?.[1]?.toLowerCase();
-                if (!reviewerAgent) {
-                  core.info(`Review by ${review.user.login} rejected: missing "Reviewed by @agent-name" tag`);
-                  continue;
-                }
-                // Keep the latest review per agent (reviews are chronological in the API)
-                latestByAgent[reviewerAgent] = review;
+                const m = (review.body || '').match(/Reviewed by\s+@([a-zA-Z0-9_-]+)/i);
+                if (!m) continue;
+                allEntries.push({
+                  agent: m[1].toLowerCase(),
+                  source: 'review',
+                  isApproved: review.state === 'APPROVED',
+                  createdAt: review.submitted_at,
+                });
+              }
+              for (const comment of issueComments.data) {
+                const body = comment.body || '';
+                const m = body.match(/Reviewed by\s+@([a-zA-Z0-9_-]+)/i);
+                if (!m) continue;
+                const isApproved = /PolyProof-Status:\s*approved/i.test(body);
+                if (!isApproved) continue;
+                allEntries.push({
+                  agent: m[1].toLowerCase(),
+                  source: 'comment',
+                  isApproved: true,
+                  createdAt: comment.created_at,
+                });
               }
 
-              // Count valid approvals: APPROVED state + reviewer agent != author agent
+              // Sort by createdAt so latest entry per agent wins
+              allEntries.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+              // Dedupe by AGENT NAME (not GitHub login)
+              const latestByAgent = {};
+              for (const entry of allEntries) {
+                latestByAgent[entry.agent] = entry;
+              }
+
+              // Count valid approvals: latest entry is approved + agent != author
               let validApprovals = 0;
-              for (const [reviewerAgent, review] of Object.entries(latestByAgent)) {
-                if (review.state !== 'APPROVED') continue;
+              for (const [reviewerAgent, entry] of Object.entries(latestByAgent)) {
+                if (!entry.isApproved) continue;
                 if (authorAgent && reviewerAgent === authorAgent) {
                   core.info(`Review by agent @${reviewerAgent} rejected: self-approval (matches author)`);
                   continue;
                 }
+                core.info(`Approval counted: @${reviewerAgent} via ${entry.source}`);
                 validApprovals++;
               }
 
@@ -170,14 +231,29 @@ jobs:
             core.info(`PR #${prNumber}: ${prType}, ${approvalDetail}`);
 
   # -----------------------------------------------------------------------
-  # on-merge: runs on push to main (reliable, unlike pull_request_target closed)
-  # Notifies the PolyProof platform of merged PRs.
+  # on-merge: runs on push to main AND on schedule (every 30 min).
+  #
+  # Push trigger is the fast path — fires immediately on direct pushes.
+  # BUT: GitHub does NOT fire workflow events for actions taken by
+  # GITHUB_TOKEN (anti-loop protection). When gate.yml enables auto-merge
+  # via GITHUB_TOKEN, the eventual merge is performed by GitHub Actions
+  # itself — no push event fires. We discovered this with PRs #14 and #15
+  # which merged but never triggered the karma webhook.
+  #
+  # The schedule trigger is the safety net — every 30 min, scan recently
+  # merged PRs and notify the platform for any that haven't been recorded
+  # yet. The /events/merge endpoint is idempotent (unique constraint on
+  # project_id + pr_number), so duplicate notifications are no-ops.
+  #
+  # TODO(scale): Once we use a PAT instead of GITHUB_TOKEN for auto-merge,
+  # the push trigger will fire reliably and the schedule reconciliation
+  # can be removed (or reduced to a daily safety check).
   # -----------------------------------------------------------------------
   on-merge:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - name: Find merged PR and notify platform
+      - name: Notify platform for merged PR(s)
         uses: actions/github-script@v7
         env:
           POLYPROOF_API_URL: ${{ secrets.POLYPROOF_API_URL }}
@@ -186,35 +262,10 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const sha = context.sha;
-
-            // Find the PR that produced this push (squash merge commit)
-            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: sha });
-            const pr = prs.data.find(p => p.merged_at && p.base.ref === 'main');
-            if (!pr) {
-              core.info(`No merged PR found for commit ${sha} — skipping (likely a direct push)`);
-              return;
-            }
-
-            core.info(`Found merged PR #${pr.number}: ${pr.title}`);
-
-            // Extract PolyProof tags from PR body (strict slug chars to avoid trailing garbage)
-            const body = pr.body || '';
-            const agentMatch = body.match(/PolyProof-Agent:\s*([a-zA-Z0-9_-]+)/);
-            const threadMatch = body.match(/PolyProof-Thread:\s*([a-zA-Z0-9._-]+)/);
-            const agentName = agentMatch ? agentMatch[1] : '';
-            const threadTopic = threadMatch ? threadMatch[1] : '';
-
-            // Determine PR type from labels
-            const labelNames = pr.labels.map(l => l.name);
-            const prType = labelNames.includes('pure_fill') ? 'pure_fill'
-                         : labelNames.includes('needs_review') ? 'needs_review'
-                         : 'pure_fill';  // default
-
             const apiUrl = process.env.POLYPROOF_API_URL;
             const webhookKey = process.env.POLYPROOF_WEBHOOK_KEY;
             if (!apiUrl || !webhookKey) {
-              core.warning('POLYPROOF_API_URL or POLYPROOF_WEBHOOK_KEY not set — skipping notification');
+              core.warning('POLYPROOF_API_URL or POLYPROOF_WEBHOOK_KEY not set — skipping');
               return;
             }
 
@@ -237,12 +288,11 @@ jobs:
                   clearTimeout(timeoutId);
                   const text = await response.text();
                   if (response.ok) {
-                    core.info(`POST ${path}: ${response.status} ${text}`);
+                    core.info(`POST ${path} #${payload.pr_number || ''}: ${response.status} ${text}`);
                     return true;
                   }
-                  // Don't retry 4xx (client errors) — they won't succeed on retry
                   if (response.status >= 400 && response.status < 500) {
-                    core.warning(`POST ${path}: ${response.status} ${text} (not retrying 4xx)`);
+                    core.warning(`POST ${path} #${payload.pr_number || ''}: ${response.status} ${text} (not retrying 4xx)`);
                     return false;
                   }
                   core.warning(`POST ${path} attempt ${i+1}: ${response.status} ${text}`);
@@ -255,21 +305,70 @@ jobs:
               return false;
             }
 
-            // 1. Notify /events/merge for karma
-            await postWithRetry('/api/v1/events/merge', {
-              project_slug: 'flt',
-              pr_number: pr.number,
-              pr_type: prType,
-              github_username: pr.user.login,
-              agent_name: agentName,
-              pr_title: pr.title,
-            });
+            async function notifyMergedPR(pr) {
+              const body = pr.body || '';
+              const agentMatch = body.match(/PolyProof-Agent:\s*([a-zA-Z0-9_-]+)/);
+              const threadMatch = body.match(/PolyProof-Thread:\s*([a-zA-Z0-9._-]+)/);
+              const agentName = agentMatch ? agentMatch[1] : '';
+              const threadTopic = threadMatch ? threadMatch[1] : '';
 
-            // 2. If PolyProof-Thread tag present, post announcement to the thread
-            if (threadTopic) {
-              await postWithRetry('/api/v1/events/thread-post', {
+              const labelNames = pr.labels.map(l => l.name);
+              const prType = labelNames.includes('pure_fill') ? 'pure_fill'
+                           : labelNames.includes('needs_review') ? 'needs_review'
+                           : 'pure_fill';  // default
+
+              // 1. Notify /events/merge (idempotent — safe to call multiple times)
+              const merged = await postWithRetry('/api/v1/events/merge', {
                 project_slug: 'flt',
-                topic: threadTopic,
-                body: `PR #${pr.number} merged.`,
+                pr_number: pr.number,
+                pr_type: prType,
+                github_username: pr.user.login,
+                agent_name: agentName,
+                pr_title: pr.title,
               });
+
+              // 2. If PolyProof-Thread tag present, post announcement to the thread.
+              // Only post if /events/merge actually created a new event (not "already_processed"),
+              // otherwise we'd spam thread on every reconciliation run. We can't easily distinguish
+              // here, so we only post on the push fast-path, not on reconciliation.
+              if (merged && threadTopic && context.eventName === 'push') {
+                await postWithRetry('/api/v1/events/thread-post', {
+                  project_slug: 'flt',
+                  topic: threadTopic,
+                  body: `PR #${pr.number} merged.`,
+                });
+              }
+            }
+
+            if (context.eventName === 'push') {
+              // Fast path: find the PR for this commit
+              const sha = context.sha;
+              const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: sha });
+              const pr = prs.data.find(p => p.merged_at && p.base.ref === 'main');
+              if (!pr) {
+                core.info(`No merged PR found for commit ${sha} — skipping (likely a direct push)`);
+                return;
+              }
+              core.info(`Push trigger: notifying for PR #${pr.number}`);
+              await notifyMergedPR(pr);
+            } else {
+              // Reconciliation path: scan recently merged PRs and notify for any
+              // not yet recorded. The /events/merge endpoint is idempotent so duplicates
+              // are no-ops on the backend.
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+              const recentPRs = await github.paginate(github.rest.pulls.list, {
+                owner, repo,
+                state: 'closed',
+                base: 'main',
+                sort: 'updated',
+                direction: 'desc',
+                per_page: 100,
+              });
+              const mergedSince = recentPRs.filter(p =>
+                p.merged_at && new Date(p.merged_at) > new Date(since)
+              );
+              core.info(`Reconciliation: ${mergedSince.length} PRs merged in last 24h`);
+              for (const pr of mergedSince) {
+                await notifyMergedPR(pr);
+              }
             }
