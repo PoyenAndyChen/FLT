@@ -211,7 +211,11 @@ noncomputable def U1diagU1 :
     Set ((D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ ⧸ (U1 r S)) :=
   QuotientGroup.mk '' ((U1 r S) * {diag r α hα})
 
-theorem bijOn_unipotent_mul_diagU1_U1diagU1 :
+set_option maxHeartbeats 800000 in
+-- Increased heartbeat due to significant `rfl`/definitional unfolding through the
+-- restricted-product + rigidification pipeline in the InjOn and SurjOn branches.
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
+theorem bijOn_unipotent_mul_diagU1_U1diagU1 (hv : v ∈ S) :
     (unipotent_mul_diag_image r α hα).BijOn QuotientGroup.mk (U1diagU1 r S α hα) := by
   refine ⟨?_, ?_, ?_⟩
   · -- MapsTo: each `unipotent_mul_diag r α hα i` can be written as `u_glob * diag r α hα`
@@ -250,23 +254,157 @@ theorem bijOn_unipotent_mul_diagU1_U1diagU1 :
       rfl
     refine ⟨u_glob * diag r α hα, Set.mul_mem_mul hu_glob_mem rfl, ?_⟩
     rw [← h_eq]
-  · -- InjOn: global double coset decomposition reduces to the local one at v.
-    -- (This requires transferring an equality in the global quotient to an equality
-    -- in the local quotient via `GL2.toAdicCompletion v`.)
-    sorry
-  · -- SurjOn: use `GL2.TameLevel.exists_split_at` to split `u ∈ U1 r S` as `U_v * U_v'`
-    -- where `U_v` is supported at v and `U_v'` is 1 at v. Then `U_v'` commutes with
-    -- `diag r α hα` (both concentrated at disjoint places), so
-    -- `mk (u * diag r α hα) = mk (U_v * diag r α hα)`. The latter reduces to the local
-    -- surjOn result at v.
-    sorry
+  · -- InjOn: if `mk (unipotent_mul_diag i) = mk (unipotent_mul_diag j)`, then the ratio
+    -- is in `U1 r S`, and its projection at `v` is a unipotent `!![1, (j - i)/α; 0, 1]`.
+    -- For this to be in `localFullLevel v` we need `(j - i)/α ∈ O_v`, i.e. `α | (j - i)`,
+    -- i.e. `i = j` in `O_v / α`.
+    rintro _ ⟨i, _, rfl⟩ _ ⟨j, _, rfl⟩ h
+    refine congrArg (unipotent_mul_diag r α hα) ?_
+    have hratio : (unipotent_mul_diag r α hα i)⁻¹ * (unipotent_mul_diag r α hα j) ∈ U1 r S :=
+      QuotientGroup.eq.mp h
+    set t_i : adicCompletionIntegers F v := Quotient.out i
+    set t_j : adicCompletionIntegers F v := Quotient.out j
+    -- Directly build a witness `w' ∈ GL2.TameLevel S`, then derive that its image at `v`
+    -- (which is `(Local.unipotent_mul_diag t_i)⁻¹ * Local.unipotent_mul_diag t_j
+    --  = Local.unipotent (α⁻¹ * (t_j - t_i))`) lies in `localFullLevel v`.
+    set g_loc : GL (Fin 2) (adicCompletion F v) :=
+      (Local.GL2.unipotent_mul_diag α hα t_i)⁻¹ *
+        Local.GL2.unipotent_mul_diag α hα t_j with hg_loc_def
+    set w' : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) :=
+      FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ v g_loc) with hw'_def
+    -- The image of `w'` under `Units.mapEquiv r.symm.toMulEquiv` is the ratio.
+    have h_image : Units.mapEquiv r.symm.toMulEquiv w' =
+        (unipotent_mul_diag r α hα i)⁻¹ * (unipotent_mul_diag r α hα j) := by
+      change Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v g_loc)) =
+        (unipotent_mul_diag r α hα i)⁻¹ * (unipotent_mul_diag r α hα j)
+      unfold unipotent_mul_diag
+      rw [← map_inv, ← map_mul, ← map_inv, ← map_mul, ← RestrictedProduct.mulSingle_inv,
+        ← RestrictedProduct.mulSingle_mul]
+    -- Extract the preimage from membership in U1.
+    obtain ⟨w, hw_mem, hw_eq⟩ := Subgroup.mem_map.mp hratio
+    -- Since `Units.mapEquiv r.symm.toMulEquiv` is injective and both `w` and `w'` map to
+    -- the ratio, we have `w = w'`.
+    have hw'_eq : w' = w := by
+      apply (Units.mapEquiv r.symm.toMulEquiv).injective
+      rw [h_image]; exact hw_eq.symm
+    have hw'_mem : w' ∈ GL2.TameLevel S := hw'_eq ▸ hw_mem
+    -- The projection of `w'` at `v` is `g_loc`, hence `g_loc ∈ localFullLevel v`.
+    have hg_loc_mem : g_loc ∈ GL2.localFullLevel v := by
+      have := hw'_mem.1 v
+      rwa [hw'_def,
+        FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same v g_loc] at this
+    -- Entry (0,1) of `g_loc`, which equals `α⁻¹ * (t_j - t_i)`, must be in `O_v`.
+    have h01_int : ((g_loc : GL (Fin 2) (adicCompletion F v)) 0 1) ∈
+        (adicCompletionIntegers F v) := GL2.v_le_one_of_mem_localFullLevel _ hg_loc_mem 0 1
+    have hg_loc_val : g_loc = Matrix.GeneralLinearGroup.GL2.unipotent
+        ((α : v.adicCompletion F)⁻¹ *
+          ((t_j : adicCompletion F v) + -(t_i : adicCompletion F v))) := by
+      exact Local.GL2.unipotent_mul_diag_inv_mul_unipotent_mul_diag α hα t_i t_j
+    have h01_eq : ((g_loc : GL (Fin 2) (adicCompletion F v)) 0 1) =
+        (α : v.adicCompletion F)⁻¹ *
+          ((t_j : adicCompletion F v) + -(t_i : adicCompletion F v)) := by
+      rw [hg_loc_val]
+      simp [Matrix.GeneralLinearGroup.GL2.unipotent, Matrix.unitOfDetInvertible]
+    rw [h01_eq] at h01_int
+    -- Conclude `i = j` in `O_v / α`.
+    change i = j
+    rw [← (QuotientAddGroup.out_eq' i), ← (QuotientAddGroup.out_eq' j)]
+    apply QuotientAddGroup.eq.mpr
+    apply Ideal.mem_span_singleton'.mpr
+    refine ⟨⟨_, h01_int⟩, ?_⟩
+    apply (Subtype.coe_inj).mp
+    push_cast
+    rw [mul_comm ((α : v.adicCompletion F)⁻¹) _, mul_assoc,
+      inv_mul_cancel₀ ((Subtype.coe_ne_coe).mpr hα), mul_one]
+    ring
+  · -- SurjOn: given `u ∈ U1 r S`, pull `u` back via `r` to `w ∈ GL2.TameLevel S`. The
+    -- local surjOn at `v` provides `t : O_v/α` such that the local ratio lies in
+    -- `localTameLevel v = U1 v` (using `v ∈ S`). We show that the preimage of the
+    -- global ratio via `r` is in `GL2.TameLevel S` by checking at each place: at `v` it
+    -- equals the local ratio, and at `w_place ≠ v` it equals the projection of `w` at
+    -- `w_place`, which is in the appropriate local level since `w ∈ GL2.TameLevel S`.
+    rintro _ ⟨_, ⟨u, hu, _, rfl, rfl⟩, rfl⟩
+    -- Extract the preimage `w ∈ GL2.TameLevel S`.
+    obtain ⟨w, hw_mem, hw_eq⟩ := Subgroup.mem_map.mp hu
+    -- The projection of `w` at `v`.
+    set g_loc : GL (Fin 2) (adicCompletion F v) :=
+      FiniteAdeleRing.GL2.toAdicCompletion v w with hg_loc_def
+    -- `g_loc ∈ localTameLevel v` because `v ∈ S` and `w ∈ GL2.TameLevel S`.
+    have hg_loc_tame : g_loc ∈ GL2.localTameLevel v := hw_mem.2 v hv
+    -- Apply the local surjOn.
+    have hlocal_target :
+        QuotientGroup.mk (g_loc * Local.GL2.diag α hα) ∈ Local.U1diagU1 v α hα :=
+      ⟨_, Set.mul_mem_mul hg_loc_tame rfl, rfl⟩
+    obtain ⟨t, _, ht⟩ :=
+      Local.surjOn_unipotent_mul_diagU1_U1diagU1 α hα hlocal_target
+    -- The local ratio lies in `Local.U1 v = localTameLevel v`.
+    have hlocal_ratio :
+        (Local.GL2.unipotent_mul_diag α hα
+            (Quotient.out t : adicCompletionIntegers F v))⁻¹ *
+          (g_loc * Local.GL2.diag α hα) ∈ Local.U1 v :=
+      QuotientGroup.eq.mp ht
+    refine ⟨unipotent_mul_diag r α hα t, ⟨t, trivial, rfl⟩, ?_⟩
+    -- It suffices to show that the ratio is in `U1 r S`.
+    apply QuotientGroup.eq.mpr
+    refine Subgroup.mem_map.mpr ?_
+    -- Build the global witness: the unique preimage `W ∈ GL₂(𝔸)` of the ratio under `r`.
+    set W : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) :=
+      (FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ v
+          (Local.GL2.unipotent_mul_diag α hα
+            (Quotient.out t : adicCompletionIntegers F v))))⁻¹ *
+      (w * FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ v (Local.GL2.diag α hα))) with hW_def
+    refine ⟨W, ?_, ?_⟩
+    · -- Show `W ∈ GL2.TameLevel S`.
+      refine ⟨fun w_place => ?_, fun w_place hwS => ?_⟩
+      · by_cases hwv : w_place = v
+        · subst hwv
+          rw [hW_def]
+          simp only [map_mul, map_inv]
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w_place _,
+            FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w_place _]
+          exact hlocal_ratio.1
+        · rw [hW_def]
+          simp only [map_mul, map_inv]
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _,
+            FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+          simp only [inv_one, one_mul, mul_one]
+          exact hw_mem.1 w_place
+      · by_cases hwv : w_place = v
+        · subst hwv
+          rw [hW_def]
+          simp only [map_mul, map_inv]
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w_place _,
+            FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w_place _]
+          exact hlocal_ratio
+        · rw [hW_def]
+          simp only [map_mul, map_inv]
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _,
+            FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+          simp only [inv_one, one_mul, mul_one]
+          exact hw_mem.2 w_place hwS
+    · -- Show `Units.map r.symm.toMonoidHom W = ratio`.
+      rw [← hw_eq]
+      change Units.map r.symm.toMonoidHom W =
+        (unipotent_mul_diag r α hα t)⁻¹ *
+          (Units.map r.symm.toMonoidHom w * diag r α hα)
+      rw [hW_def]
+      simp only [map_mul, map_inv]
+      rfl
 
+omit [IsTotallyReal F] in
 lemma unipotent_mul_diag_image_finite :
     (unipotent_mul_diag_image r α hα).Finite := by
-  apply (Set.BijOn.finite_iff_finite (bijOn_unipotent_mul_diagU1_U1diagU1 r {v} α hα)).mpr
+  apply (Set.BijOn.finite_iff_finite
+    (bijOn_unipotent_mul_diagU1_U1diagU1 r {v} α hα (Finset.mem_singleton.mpr rfl))).mpr
   unfold U1diagU1
   exact (QuotientGroup.mk_image_finite_of_compact_of_open (U1_compact r {v}) (U1_open r {v}))
 
+omit [IsTotallyReal F] in
 lemma quot_top_finite (r : Rigidification F D) (α : v.adicCompletionIntegers F) (hα : α ≠ 0) :
     (⊤ : Set ((adicCompletionIntegers F v) ⧸ (Ideal.span {α}))).Finite := by
   apply Set.Finite.of_finite_image _ (unipotent_mul_diag_inj r α hα)
@@ -299,12 +437,14 @@ lemma U_apply (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
       gᵢ • a.1 :=
   rfl
 
+omit [IsTotallyReal F] in
 open AbstractHeckeOperator in
-lemma U_apply_eq_finsum_unipotent_mul_diag_image (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
+lemma U_apply_eq_finsum_unipotent_mul_diag_image (hv : v ∈ S)
+    (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
     ((U r S R α hα) a).1 =
     ∑ᶠ (g : (D ⊗[F] FiniteAdeleRing (𝓞 F) F)ˣ) (_ : g ∈ unipotent_mul_diag_image r α hα),
       g • a.1 :=
-  (eq_finsum_quotient_out_of_bijOn' a (bijOn_unipotent_mul_diagU1_U1diagU1 r S α hα)) ▸
+  (eq_finsum_quotient_out_of_bijOn' a (bijOn_unipotent_mul_diagU1_U1diagU1 r S α hα hv)) ▸
     U_apply r S R α hα a
 
 /-- A "raw lift" version of `unipotent_mul_diag`: takes an arbitrary `t : 𝓞_v` instead of
@@ -410,6 +550,7 @@ lemma unipotent_mul_diag_lift_smul_eq {γ : v.adicCompletionIntegers F} (hγ : �
   congr 1
   exact a.2 ⟨u'', hu''⟩
 
+omit [IsTotallyReal F] in
 lemma U_mul_aux {v : HeightOneSpectrum (𝓞 F)}
     {α β : v.adicCompletionIntegers F} (hα : α ≠ 0) (hβ : β ≠ 0)
     (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
@@ -469,25 +610,27 @@ lemma U_mul_aux {v : HeightOneSpectrum (𝓞 F)}
         (i.out + α * j.out)) := by ring
   rw [heq]; exact neg_mem h1
 
+omit [IsTotallyReal F] in
 open AbstractHeckeOperator in
-lemma U_mul {v : HeightOneSpectrum (𝓞 F)}
+lemma U_mul {v : HeightOneSpectrum (𝓞 F)} (hv : v ∈ S)
     {α β : v.adicCompletionIntegers F} (hα : α ≠ 0) (hβ : β ≠ 0) :
     (U r S R α hα ∘ₗ U r S R β hβ) =
     U r S R (α * β) (hα.mul hβ) := by
   ext1 a
   apply (Subtype.coe_inj).mp
-  simp only [U_apply_eq_finsum_unipotent_mul_diag_image,
+  simp only [U_apply_eq_finsum_unipotent_mul_diag_image _ _ _ _ _ hv,
     LinearMap.coe_comp, Function.comp_apply,
     smul_finsum_mem (unipotent_mul_diag_image_finite r β hβ)]
   unfold unipotent_mul_diag_image
   simp only [finsum_mem_image (unipotent_mul_diag_inj _ _ _)]
   simpa using U_mul_aux r S R hα hβ a
 
-lemma U_comm {v : HeightOneSpectrum (𝓞 F)}
+omit [IsTotallyReal F] in
+lemma U_comm {v : HeightOneSpectrum (𝓞 F)} (hv : v ∈ S)
     {α β : v.adicCompletionIntegers F} (hα : α ≠ 0) (hβ : β ≠ 0) :
     U r S R α hα ∘ₗ U r S R β hβ =
     U r S R β hβ ∘ₗ U r S R α hα := by
-  rw [U_mul, U_mul]
+  rw [U_mul _ _ _ hv, U_mul _ _ _ hv]
   congr 1
   rw [mul_comm]
 
