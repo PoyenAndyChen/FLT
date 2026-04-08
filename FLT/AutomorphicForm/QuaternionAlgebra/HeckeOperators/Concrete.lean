@@ -287,6 +287,30 @@ lemma unipotent_mul_diag_lift_mul {β : v.adicCompletionIntegers F} (hβ : β �
   congr 3
   exact Local.GL2.unipotent_mul_diag_mul_unipotent_mul_diag α hα hβ s t
 
+/-- The ratio `(umd_lift α t₁)⁻¹ * umd_lift α t₂` is in `U1(S)` when `t₁ ≡ t₂ (mod α)`. -/
+lemma unipotent_mul_diag_lift_inv_mul_mem_U1 (t₁ t₂ : adicCompletionIntegers F v)
+    (h : t₁ - t₂ ∈ Ideal.span {α}) :
+    (unipotent_mul_diag_lift r α hα t₁)⁻¹ * unipotent_mul_diag_lift r α hα t₂ ∈ U1 r S := by
+  sorry
+
+/-- U1-invariance of `unipotent_mul_diag_lift` at the automorphic form level: if `t₁ ≡ t₂`
+modulo `α`, then `umd_lift α t₁` and `umd_lift α t₂` act identically on any `U1(S)`-invariant
+automorphic form. This is the key "invariance" step for `U_mul_aux`. -/
+lemma unipotent_mul_diag_lift_smul_of_sub_mem
+    (t₁ t₂ : adicCompletionIntegers F v) (h : t₁ - t₂ ∈ Ideal.span {α})
+    (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
+    (unipotent_mul_diag_lift r α hα t₁ : (D ⊗[F] FiniteAdeleRing (𝓞 F) F)ˣ) • (a.1 :
+      WeightTwoAutomorphicForm F D R) =
+    unipotent_mul_diag_lift r α hα t₂ • a.1 := by
+  set g₁ := unipotent_mul_diag_lift r α hα t₁
+  set g₂ := unipotent_mul_diag_lift r α hα t₂
+  have hu : g₁⁻¹ * g₂ ∈ U1 r S :=
+    unipotent_mul_diag_lift_inv_mul_mem_U1 r S α hα t₁ t₂ h
+  have hu_smul : (g₁⁻¹ * g₂ : _) • a.1 = a.1 := a.2 ⟨g₁⁻¹ * g₂, hu⟩
+  have : g₂ • a.1 = g₁ • ((g₁⁻¹ * g₂ : _) • a.1) := by
+    rw [← mul_smul, mul_inv_cancel_left]
+  rw [this, hu_smul]
+
 lemma U_mul_aux {v : HeightOneSpectrum (𝓞 F)}
     {α β : v.adicCompletionIntegers F} (hα : α ≠ 0) (hβ : β ≠ 0)
     (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
