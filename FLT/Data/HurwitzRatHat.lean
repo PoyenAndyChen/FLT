@@ -375,7 +375,224 @@ lemma completed_units (z : D^ˣ) : ∃ (u : Dˣ) (v : 𝓞^ˣ), (z : D^) = j₁ 
     rw [hα_eq, h, Submodule.span_singleton_eq_bot.mpr rfl]
   -- α has positive norm
   have hnorm_pos : (Hurwitz.norm α) > 0 := Hurwitz.norm_pos_of_ne_zero hα_ne_zero
-  -- Punt the rest with sorry — see thread for the T-trick continuation
-  sorry
+  -- Step 6: Extract v_ : 𝓞^ with v_ * w' = oToOhat α
+  have hα_mem : oToOhat α ∈ Submodule.span 𝓞^ ({w'} : Set 𝓞^) := hα_in_I
+  obtain ⟨v_, hv_⟩ := Submodule.mem_span_singleton.mp hα_mem
+  -- hv_ : v_ • w' = oToOhat α, which is v_ * w' = oToOhat α (scalar action is multiplication)
+  change v_ * w' = oToOhat α at hv_
+  -- Step 7: The T-trick. Take T = norm α ∈ ℕ+.
+  set T : ℕ+ := (Hurwitz.norm α).toNat.toPNat' with hTdef
+  have hT_pos_nat : 0 < (Hurwitz.norm α).toNat := by
+    rw [Int.lt_toNat]; exact_mod_cast hnorm_pos
+  have hT_coe : (T : ℕ) = (Hurwitz.norm α).toNat := by
+    rw [hTdef]; exact PNat.toPNat'_coe hT_pos_nat
+  have hT_int : ((T : ℕ) : ℤ) = Hurwitz.norm α := by
+    rw [hT_coe]; exact Int.toNat_of_nonneg hnorm_pos.le
+  -- Apply surjective_pnat_quotient T w'
+  obtain ⟨β, rem, hβrem⟩ := HurwitzHat.surjective_pnat_quotient T w'
+  -- hβrem : w' = β ⊗ₜ 1 + (T : ℤ) • rem  (viewed in 𝓞 ⊗[ℤ] ZHat)
+  -- Cast everything into 𝓞^.
+  let rem' : 𝓞^ := rem
+  have hβrem' : w' = oToOhat β + ((T : ℕ) : ℤ) • rem' := hβrem
+  have hβ_eq : oToOhat β = w' - ((T : ℕ) : ℤ) • rem' := by
+    rw [hβrem']; abel
+  -- Step 7a: Show β ∈ I, i.e., oToOhat β ∈ span 𝓞^ {w'}.
+  -- Key: (norm α : 𝓞^) ∈ 𝓞^ * w'.
+  -- Proof: norm α = star α * α in 𝓞, so oToOhat (norm α) = oToOhat (star α) * oToOhat α
+  --   = oToOhat (star α) * (v_ * w') ∈ 𝓞^ * w'.
+  have hnormcast : oToOhat (Hurwitz.norm α : 𝓞) = (Hurwitz.norm α : 𝓞^) := by
+    change (Algebra.TensorProduct.includeLeft : 𝓞 →ₐ[ℤ] 𝓞^) (Hurwitz.norm α : 𝓞) = _
+    rw [map_intCast]
+  have h_stara_alpha : oToOhat (star α) * oToOhat α = (Hurwitz.norm α : 𝓞^) := by
+    rw [← map_mul, ← HurwitzRat.star_mul_self_eq_norm α, hnormcast]
+  have hnorm_in : (Hurwitz.norm α : 𝓞^) ∈ Submodule.span 𝓞^ ({w'} : Set 𝓞^) := by
+    rw [← h_stara_alpha, ← hv_, ← mul_assoc]
+    exact Submodule.smul_mem _ (oToOhat (star α) * v_) (Submodule.mem_span_singleton_self w')
+  -- Using T central, (T : ℤ) • rem = rem * (T : 𝓞^), and since (T : 𝓞^) ∈ span {w'},
+  -- we get (T : ℤ) • rem ∈ span {w'}.
+  have hTsmul_in : (((T : ℕ) : ℤ) • rem') ∈ Submodule.span 𝓞^ ({w'} : Set 𝓞^) := by
+    rw [hT_int]
+    -- Goal: (Hurwitz.norm α : ℤ) • rem' ∈ span {w'}
+    have heq : (Hurwitz.norm α : ℤ) • rem' = rem' * (Hurwitz.norm α : 𝓞^) := by
+      rw [zsmul_eq_mul, Int.cast_comm]
+    rw [heq]
+    obtain ⟨r₀, hr₀⟩ := Submodule.mem_span_singleton.mp hnorm_in
+    change r₀ * w' = _ at hr₀
+    rw [← hr₀, ← mul_assoc]
+    exact Submodule.smul_mem _ (rem' * r₀) (Submodule.mem_span_singleton_self w')
+  have hβ_in_I : β ∈ I := by
+    change oToOhat β ∈ Submodule.span 𝓞^ ({w'} : Set 𝓞^)
+    rw [hβ_eq]
+    exact Submodule.sub_mem _ (Submodule.mem_span_singleton_self w') hTsmul_in
+  -- Step 7b: β = γ * α for some γ : 𝓞
+  rw [hα_eq, Submodule.mem_span_singleton] at hβ_in_I
+  obtain ⟨γ, hγ⟩ := hβ_in_I
+  change γ * α = β at hγ
+  -- Step 7c: Define u_ : 𝓞^ so that u_ * oToOhat α = w'
+  -- w' = oToOhat β + (T : ℤ) • rem
+  --    = oToOhat(γ * α) + rem * (norm α : 𝓞^)
+  --    = oToOhat γ * oToOhat α + rem * oToOhat(star α) * oToOhat α
+  --    = (oToOhat γ + rem * oToOhat(star α)) * oToOhat α
+  let u_ : 𝓞^ := oToOhat γ + rem' * oToOhat (star α)
+  have hu_ : u_ * oToOhat α = w' := by
+    change (oToOhat γ + rem' * oToOhat (star α)) * oToOhat α = w'
+    rw [add_mul, mul_assoc, h_stara_alpha, ← map_mul, hγ]
+    -- Goal: oToOhat β + rem * (Hurwitz.norm α : 𝓞^) = w'
+    rw [hβrem']
+    -- Goal: oToOhat β + rem * (Hurwitz.norm α : 𝓞^) = oToOhat β + (T : ℤ) • rem
+    congr 1
+    rw [zsmul_eq_mul, Int.cast_comm, hT_int]
+  -- Step 8: Show u_ * v_ = 1 and v_ * u_ = 1
+  have hNM_pos : ((N * M : ℕ+) : ℕ) > 0 := PNat.pos _
+  have huv : u_ * v_ = 1 := by
+    -- From (u_ * v_ - 1) * w' = 0 and w' * z' = NM > 0 (in ℕ), conclude u_ * v_ = 1
+    have h1 : (u_ * v_ - 1) * w' = 0 := by
+      rw [sub_mul, one_mul, mul_assoc, hv_, hu_, sub_self]
+    have h2 : (u_ * v_ - 1) * ((N * M : ℕ+) : 𝓞^) = 0 := by
+      rw [← hwz, ← mul_assoc, h1, zero_mul]
+    -- (u_ * v_ - 1) * (NM : 𝓞^) = 0 means (NM : ℤ) • (u_ * v_ - 1) = 0 (central cast)
+    have h3 : ((N * M : ℕ+) : ℕ) • (u_ * v_ - 1) = 0 := by
+      have hcast : (((N * M : ℕ+) : ℕ) : 𝓞^) = ((N * M : ℕ+) : 𝓞^) := by push_cast; rfl
+      have heq : ((N * M : ℕ+) : ℕ) • (u_ * v_ - 1) = (u_ * v_ - 1) * ((N * M : ℕ+) : 𝓞^) := by
+        rw [nsmul_eq_mul, hcast, (Nat.cast_commute ((N * M : ℕ+) : ℕ) (u_ * v_ - 1)).eq, hcast]
+      rw [heq, h2]
+    -- Torsion-free implies u_ * v_ - 1 = 0
+    have h4 : u_ * v_ - 1 = 0 := by
+      have hinj := IsAddTorsionFree.nsmul_right_injective (M := 𝓞^) hNM_pos.ne'
+      have := hinj (show ((N * M : ℕ+) : ℕ) • (u_ * v_ - 1) = ((N * M : ℕ+) : ℕ) • 0 from by
+        rw [smul_zero]; exact h3)
+      exact this
+    exact sub_eq_zero.mp h4
+  have hvu : v_ * u_ = 1 := by
+    -- (v_ * u_ - 1) * oToOhat α = 0, then right-multiply by oToOhat (star α) to get
+    -- (v_ * u_ - 1) * (Hurwitz.norm α : 𝓞^) = 0.
+    have h1 : (v_ * u_ - 1) * oToOhat α = 0 := by
+      rw [sub_mul, one_mul, mul_assoc, hu_, hv_, sub_self]
+    have h_alpha_stara : oToOhat α * oToOhat (star α) = (Hurwitz.norm α : 𝓞^) := by
+      rw [← map_mul, ← Hurwitz.norm_eq_mul_conj, hnormcast]
+    have h2 : (v_ * u_ - 1) * (Hurwitz.norm α : 𝓞^) = 0 := by
+      rw [← h_alpha_stara, ← mul_assoc, h1, zero_mul]
+    have hcast_nat : (((Hurwitz.norm α).toNat : ℕ) : 𝓞^) = (Hurwitz.norm α : 𝓞^) := by
+      have h1 : (((Hurwitz.norm α).toNat : ℕ) : ℤ) = Hurwitz.norm α :=
+        Int.toNat_of_nonneg hnorm_pos.le
+      calc (((Hurwitz.norm α).toNat : ℕ) : 𝓞^)
+          = ((((Hurwitz.norm α).toNat : ℕ) : ℤ) : 𝓞^) := by push_cast; rfl
+        _ = ((Hurwitz.norm α : ℤ) : 𝓞^) := by rw [h1]
+    have h3 : (Hurwitz.norm α).toNat • (v_ * u_ - 1) = 0 := by
+      have heq : (Hurwitz.norm α).toNat • (v_ * u_ - 1) =
+          (v_ * u_ - 1) * (Hurwitz.norm α : 𝓞^) := by
+        rw [nsmul_eq_mul, (Nat.cast_commute ((Hurwitz.norm α).toNat) (v_ * u_ - 1)).eq,
+          hcast_nat]
+      rw [heq, h2]
+    have hnormNat_pos : (Hurwitz.norm α).toNat ≠ 0 := by
+      have : 0 < (Hurwitz.norm α).toNat := by
+        rw [Int.lt_toNat]; exact_mod_cast hnorm_pos
+      omega
+    have h4 : v_ * u_ - 1 = 0 := by
+      have hinj := IsAddTorsionFree.nsmul_right_injective (M := 𝓞^) hnormNat_pos
+      have heq0 : (Hurwitz.norm α).toNat • (v_ * u_ - 1) = (Hurwitz.norm α).toNat • 0 := by
+        rw [h3, smul_zero]
+      exact hinj heq0
+    exact sub_eq_zero.mp h4
+  -- Step 9: Build the 𝓞^-unit with value u_ and inverse v_
+  let v_unit : 𝓞^ˣ := ⟨u_, v_, huv, hvu⟩
+  -- Step 10: Build the D-unit.
+  -- From `hzinv : z⁻¹ = j₁((M⁻¹) ⊗ₜ 1) * j₂ w'`, and `w' = u_ * oToOhat α`:
+  -- `z⁻¹ = j₁((M⁻¹) ⊗ₜ 1) * j₂(u_) * j₂(oToOhat α) = j₁((M⁻¹) ⊗ₜ 1) * j₂ v_unit * j₁((1 : ℚ) ⊗ₜ α)`
+  -- Use centrality of `j₁((M⁻¹) ⊗ₜ 1)` to commute past `j₂ v_unit`, combine j₁'s:
+  -- `z⁻¹ = j₂ v_unit * j₁((M⁻¹ : ℚ) ⊗ₜ α)`
+  -- So `z = (j₁((M⁻¹ : ℚ) ⊗ₜ α))⁻¹ * (j₂ v_unit)⁻¹`.
+  -- `(M⁻¹ : ℚ) ⊗ₜ α = ((M⁻¹ : ℚ) ⊗ₜ 1) * ((1 : ℚ) ⊗ₜ α)` — product of units.
+  -- Define the D-unit explicitly.
+  let Mrat_inv : Dˣ := {
+    val := (((M : ℚ)⁻¹) ⊗ₜ[ℤ] (1 : 𝓞) : D)
+    inv := (((M : ℚ)) ⊗ₜ[ℤ] (1 : 𝓞) : D)
+    val_inv := by
+      rw [Algebra.TensorProduct.tmul_mul_tmul, mul_one,
+        inv_mul_cancel₀ (by exact_mod_cast (M.pos).ne' : ((M : ℚ)) ≠ 0)]; rfl
+    inv_val := by
+      rw [Algebra.TensorProduct.tmul_mul_tmul, mul_one,
+        mul_inv_cancel₀ (by exact_mod_cast (M.pos).ne' : ((M : ℚ)) ≠ 0)]; rfl }
+  let αunit : Dˣ := HurwitzRat.oneTmulUnit α hα_ne_zero
+  -- The unit `(M⁻¹ ⊗ₜ α : D)` as product Mrat_inv * αunit
+  let MαInvUnit : Dˣ := Mrat_inv * αunit
+  -- The final D-unit is the inverse of MαInvUnit
+  refine ⟨MαInvUnit⁻¹, v_unit⁻¹, ?_⟩
+  -- Goal: (z : D^) = j₁(MαInvUnit⁻¹ : D) * j₂(v_unit⁻¹ : 𝓞^)
+  -- Strategy: show (j₁(MαInvUnit) * j₂(v_unit)) * z = 1, then rearrange.
+  -- We have (j₂ v_unit : D^) = j₂ u_, and (j₁ MαInvUnit : D^) = j₁((M⁻¹ : ℚ) ⊗ₜ α) =
+  -- j₁((M⁻¹ : ℚ) ⊗ₜ 1) * j₁((1 : ℚ) ⊗ₜ α).
+  -- (not needed below; removed)
+  have hv_unit_val : ((v_unit : 𝓞^ˣ) : 𝓞^) = u_ := rfl
+  -- Key identity: j₂ w' = j₂ u_ * j₁((1 : ℚ) ⊗ₜ α)
+  have hj2oToOhat : j₂ (oToOhat α) = j₁ ((1 : ℚ) ⊗ₜ[ℤ] α : D) := rfl
+  have hj2w' : j₂ w' = j₂ u_ * j₁ ((1 : ℚ) ⊗ₜ[ℤ] α : D) := by
+    rw [← hu_, map_mul, hj2oToOhat]
+  -- Now express z from hzinv + hj2w'
+  -- z⁻¹ = j₁((M⁻¹) ⊗ₜ 1) * (j₂ u_ * j₁((1 : ℚ) ⊗ₜ α))
+  --     = (j₁((M⁻¹) ⊗ₜ 1) * j₂ u_) * j₁((1 : ℚ) ⊗ₜ α)      -- reassoc
+  --     = (j₂ u_ * j₁((M⁻¹) ⊗ₜ 1)) * j₁((1 : ℚ) ⊗ₜ α)       -- central j₁
+  --     = j₂ u_ * (j₁((M⁻¹) ⊗ₜ 1) * j₁((1 : ℚ) ⊗ₜ α))       -- reassoc
+  --     = j₂ u_ * j₁((M⁻¹ : ℚ) ⊗ₜ α)                          -- combine
+  have hzinv_eq : (z⁻¹ : (D^)ˣ).val = j₂ u_ * j₁ (((M : ℚ)⁻¹ ⊗ₜ[ℤ] (1 : 𝓞) : D)) *
+      j₁ ((1 : ℚ) ⊗ₜ[ℤ] α : D) := by
+    rw [hzinv, hj2w']
+    rw [← mul_assoc]
+    -- goal: j₁((M⁻¹) ⊗ₜ 1) * j₂ u_ * j₁((1 : ℚ) ⊗ₜ α) = j₂ u_ * j₁((M⁻¹) ⊗ₜ 1) * j₁((1 : ℚ) ⊗ₜ α)
+    congr 1
+    exact (j₁_rat_mul_comm ((M : ℚ)⁻¹) u_)
+  -- Directly compute: ↑z⁻¹ = (j₂ u_) * (j₁ ((M⁻¹)⊗α))
+  have hinv_val : (z⁻¹ : (D^)ˣ).val =
+      (j₂ u_) * (j₁ (((M : ℚ)⁻¹ ⊗ₜ[ℤ] (1 : 𝓞) : D) * ((1 : ℚ) ⊗ₜ[ℤ] α : D))) := by
+    rw [map_mul, ← mul_assoc]; exact hzinv_eq
+  -- The RHS: (j₂ u_) * (j₁ (MαInvUnit.val)), and u_ = v_unit.val, MαInvUnit.val = the product.
+  have hMα_val2 : ((MαInvUnit : Dˣ) : D) =
+      (((M : ℚ)⁻¹ ⊗ₜ[ℤ] (1 : 𝓞) : D)) * ((1 : ℚ) ⊗ₜ[ℤ] α : D) := rfl
+  -- So `↑z⁻¹ = j₂ ↑v_unit * j₁ ↑MαInvUnit`.
+  have hinv_val2 : (z⁻¹ : (D^)ˣ).val = j₂ ((v_unit : 𝓞^ˣ) : 𝓞^) * j₁ ((MαInvUnit : Dˣ) : D) := by
+    rw [hv_unit_val, hMα_val2]; exact hinv_val
+  -- Key: in a monoid with an element z that is a unit, ↑z * ↑(z⁻¹) = 1.
+  -- Goal: ↑z = j₁ ↑MαInvUnit⁻¹ * j₂ ↑v_unit⁻¹
+  -- Strategy: Show that RHS * ↑z⁻¹ = 1 in D^ (or equivalently ↑z * RHS = 1 via inverse)
+  -- Actually easier: show ↑z * (j₂ ↑v_unit * j₁ ↑MαInvUnit) = 1, then take inverse.
+  have hz_mul : (z : (D^)ˣ).val * ((z⁻¹ : (D^)ˣ).val) = 1 := by
+    rw [← Units.val_mul, mul_inv_cancel, Units.val_one]
+  rw [hinv_val2] at hz_mul
+  -- hz_mul : ↑z * (j₂ ↑v_unit * j₁ ↑MαInvUnit) = 1
+  -- So ↑z = (j₂ ↑v_unit * j₁ ↑MαInvUnit)⁻¹ in terms of... well D^ isn't a group.
+  -- But we know: (j₁ ↑MαInvUnit⁻¹ * j₂ ↑v_unit⁻¹) * (j₂ ↑v_unit * j₁ ↑MαInvUnit) = 1
+  -- from ring and the unit equations. Combined with hz_mul, cancel.
+  -- Better: multiply hz_mul on the right by (j₁ ↑MαInvUnit⁻¹ * j₂ ↑v_unit⁻¹).
+  have hprod_inv : (j₁ ((MαInvUnit⁻¹ : Dˣ) : D) * j₂ ((v_unit⁻¹ : 𝓞^ˣ) : 𝓞^)) *
+      (j₂ ((v_unit : 𝓞^ˣ) : 𝓞^) * j₁ ((MαInvUnit : Dˣ) : D)) = 1 := by
+    rw [mul_assoc, ← mul_assoc (j₂ _) (j₂ _) _, ← map_mul j₂,
+      show ((v_unit⁻¹ : 𝓞^ˣ) : 𝓞^) * ((v_unit : 𝓞^ˣ) : 𝓞^) = 1 from by
+        rw [← Units.val_mul, inv_mul_cancel, Units.val_one],
+      map_one, one_mul, ← map_mul j₁,
+      show ((MαInvUnit⁻¹ : Dˣ) : D) * ((MαInvUnit : Dˣ) : D) = 1 from by
+        rw [← Units.val_mul, inv_mul_cancel, Units.val_one],
+      map_one]
+  -- Multiply hz_mul by hprod_inv on the right
+  have : (z : (D^)ˣ).val =
+      j₁ ((MαInvUnit⁻¹ : Dˣ) : D) * j₂ ((v_unit⁻¹ : 𝓞^ˣ) : 𝓞^) := by
+    have h := congrArg (fun x => x * (j₁ ((MαInvUnit⁻¹ : Dˣ) : D) *
+        j₂ ((v_unit⁻¹ : 𝓞^ˣ) : 𝓞^))) hz_mul
+    simp only at h
+    rw [one_mul, mul_assoc] at h
+    -- h : ↑z * ((j₂ ↑v_unit * j₁ ↑MαInvUnit) * (j₁ ↑MαInvUnit⁻¹ * j₂ ↑v_unit⁻¹)) =
+    --     j₁ ↑MαInvUnit⁻¹ * j₂ ↑v_unit⁻¹
+    -- The inner parens should also equal 1; let me compute.
+    have hinner : (j₂ ((v_unit : 𝓞^ˣ) : 𝓞^) * j₁ ((MαInvUnit : Dˣ) : D)) *
+        (j₁ ((MαInvUnit⁻¹ : Dˣ) : D) * j₂ ((v_unit⁻¹ : 𝓞^ˣ) : 𝓞^)) = 1 := by
+      rw [mul_assoc, ← mul_assoc (j₁ _) (j₁ _) _, ← map_mul j₁,
+        show ((MαInvUnit : Dˣ) : D) * ((MαInvUnit⁻¹ : Dˣ) : D) = 1 from by
+          rw [← Units.val_mul, mul_inv_cancel, Units.val_one],
+        map_one, one_mul, ← map_mul j₂,
+        show ((v_unit : 𝓞^ˣ) : 𝓞^) * ((v_unit⁻¹ : 𝓞^ˣ) : 𝓞^) = 1 from by
+          rw [← Units.val_mul, mul_inv_cancel, Units.val_one],
+        map_one]
+    rw [hinner, mul_one] at h
+    exact h
+  exact this
 
 end HurwitzRatHat
