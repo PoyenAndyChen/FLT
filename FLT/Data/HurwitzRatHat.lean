@@ -52,6 +52,61 @@ scoped notation "D" => HurwitzRat
 
 noncomputable instance : Ring D := Algebra.TensorProduct.instRing
 
+/-- For nonzero `α : 𝓞`, the element `1 ⊗ₜ α : D` has the explicit two-sided inverse
+`(norm α)⁻¹ ⊗ₜ star α : D`. This is because `α * star α = star α * α = norm α : ℤ` (central). -/
+lemma one_tmul_mul_inv_eq_one (α : 𝓞) (hα : α ≠ 0) :
+    ((1 : ℚ) ⊗ₜ[ℤ] α : D) *
+      (((Hurwitz.norm α : ℚ)⁻¹ ⊗ₜ[ℤ] star α : D)) = 1 := by
+  rw [Algebra.TensorProduct.tmul_mul_tmul, one_mul]
+  -- ((norm α)⁻¹) ⊗ (α * star α) = 1
+  rw [show ((α * star α : 𝓞)) = (((Hurwitz.norm α) : 𝓞)) from
+    (Hurwitz.norm_eq_mul_conj α).symm]
+  -- Pull the integer (norm α) through the tensor: q ⊗ (n : 𝓞) = (n • q) ⊗ 1
+  rw [show ((Hurwitz.norm α : 𝓞)) = ((Hurwitz.norm α : ℤ) • (1 : 𝓞)) from by
+    rw [zsmul_eq_mul, mul_one]]
+  rw [TensorProduct.tmul_smul, TensorProduct.smul_tmul']
+  -- ((norm α : ℤ) • ((norm α)⁻¹ : ℚ)) ⊗ 1 = 1
+  change (((Hurwitz.norm α : ℤ) • (Hurwitz.norm α : ℚ)⁻¹) ⊗ₜ[ℤ] (1 : 𝓞)) = (1 : D)
+  rw [zsmul_eq_mul]
+  have : (Hurwitz.norm α : ℚ) ≠ 0 := by
+    have := Hurwitz.norm_pos_of_ne_zero hα
+    exact_mod_cast this.ne'
+  rw [mul_inv_cancel₀ this]
+  rfl
+
+/-- `star α * α = (norm α : 𝓞)` in 𝓞 — companion to `Hurwitz.norm_eq_mul_conj`. -/
+private lemma star_mul_self_eq_norm (α : 𝓞) :
+    (Hurwitz.norm α : 𝓞) = star α * α := by
+  ext <;> simp only [Hurwitz.intCast_re, Hurwitz.intCast_im_o, Hurwitz.intCast_im_i,
+    Hurwitz.intCast_im_oi, Hurwitz.mul_re, Hurwitz.mul_im_o, Hurwitz.mul_im_i, Hurwitz.mul_im_oi,
+    Hurwitz.star_re, Hurwitz.star_im_o, Hurwitz.star_im_i, Hurwitz.star_im_oi, Hurwitz.norm] <;>
+    ring
+
+/-- The "inverse direction": `((norm α)⁻¹ ⊗ₜ star α) * (1 ⊗ₜ α) = 1` in D. -/
+lemma inv_mul_one_tmul_eq_one (α : 𝓞) (hα : α ≠ 0) :
+    (((Hurwitz.norm α : ℚ)⁻¹ ⊗ₜ[ℤ] star α : D)) *
+      ((1 : ℚ) ⊗ₜ[ℤ] α : D) = 1 := by
+  rw [Algebra.TensorProduct.tmul_mul_tmul, mul_one]
+  rw [show ((star α * α : 𝓞)) = ((Hurwitz.norm α : 𝓞)) from (star_mul_self_eq_norm α).symm]
+  rw [show ((Hurwitz.norm α : 𝓞)) = ((Hurwitz.norm α : ℤ) • (1 : 𝓞)) from by
+    rw [zsmul_eq_mul, mul_one]]
+  rw [TensorProduct.tmul_smul, TensorProduct.smul_tmul']
+  change (((Hurwitz.norm α : ℤ) • (Hurwitz.norm α : ℚ)⁻¹) ⊗ₜ[ℤ] (1 : 𝓞)) = (1 : D)
+  rw [zsmul_eq_mul]
+  have : (Hurwitz.norm α : ℚ) ≠ 0 := by
+    have := Hurwitz.norm_pos_of_ne_zero hα
+    exact_mod_cast this.ne'
+  rw [mul_inv_cancel₀ this]
+  rfl
+
+/-- For nonzero `α : 𝓞`, the embedding `1 ⊗ₜ α : D` is a unit, with explicit inverse
+`(norm α)⁻¹ ⊗ₜ star α`. -/
+noncomputable def oneTmulUnit (α : 𝓞) (hα : α ≠ 0) : Dˣ where
+  val := (1 : ℚ) ⊗ₜ[ℤ] α
+  inv := ((Hurwitz.norm α : ℚ)⁻¹ ⊗ₜ[ℤ] star α : D)
+  val_inv := one_tmul_mul_inv_eq_one α hα
+  inv_val := inv_mul_one_tmul_eq_one α hα
+
 end HurwitzRat
 
 open scoped HurwitzRat HurwitzHat
