@@ -96,6 +96,58 @@ lemma unipotent_mul_diag_mul_unipotent_mul_diag
   push_cast [unipotent_mul_diag, unipotent_def, diag_def]
   fin_cases i <;> fin_cases j <;> simp [Matrix.mul_apply, Fin.sum_univ_two]
 
+/-- The set-level bijection `𝓞ᵥ/α × 𝓞ᵥ/β ≃ 𝓞ᵥ/(α*β)` via `(i, j) ↦ [α * out(j) + out(i)]`.
+This is the key combinatorial ingredient for `U_mul_aux` in `Concrete.lean`. -/
+noncomputable def quotientSpanMulEquiv (β : v.adicCompletionIntegers F) :
+    (v.adicCompletionIntegers F ⧸ Ideal.span {α}) ×
+      (v.adicCompletionIntegers F ⧸ Ideal.span {β}) ≃
+    (v.adicCompletionIntegers F ⧸ Ideal.span {α * β}) :=
+  Equiv.ofBijective
+    (fun p => Ideal.Quotient.mk _
+      (α * (Quotient.out p.2 : v.adicCompletionIntegers F) + Quotient.out p.1)) <| by
+  refine ⟨?_, ?_⟩
+  · -- Injective
+    rintro ⟨i₁, j₁⟩ ⟨i₂, j₂⟩ h
+    simp only at h
+    rw [Ideal.Quotient.eq, Ideal.mem_span_singleton] at h
+    obtain ⟨c, hc⟩ := h
+    -- hc : α * out(j₁) + out(i₁) - (α * out(j₂) + out(i₂)) = α*β*c
+    -- Step 1: i₁ = i₂
+    have hi : i₁ = i₂ := by
+      rw [← Ideal.Quotient.mk_out i₁, ← Ideal.Quotient.mk_out i₂]
+      rw [Ideal.Quotient.eq, Ideal.mem_span_singleton]
+      exact ⟨β * c - (Quotient.out j₁ - Quotient.out j₂), by linear_combination hc⟩
+    subst hi
+    -- Step 2: j₁ = j₂, using α injective
+    have hα_reg : α ≠ 0 := hα
+    have hj_eq : α * ((Quotient.out j₁ : v.adicCompletionIntegers F) - Quotient.out j₂) =
+                 α * (β * c) := by linear_combination hc
+    have hj_cancel : (Quotient.out j₁ : v.adicCompletionIntegers F) - Quotient.out j₂ = β * c :=
+      mul_left_cancel₀ hα_reg hj_eq
+    have hj : j₁ = j₂ := by
+      rw [← Ideal.Quotient.mk_out j₁, ← Ideal.Quotient.mk_out j₂]
+      rw [Ideal.Quotient.eq, Ideal.mem_span_singleton]
+      exact ⟨c, hj_cancel⟩
+    rw [hj]
+  · -- Surjective
+    intro k
+    set r : v.adicCompletionIntegers F := Quotient.out k with hr_def
+    set i : v.adicCompletionIntegers F ⧸ Ideal.span {α} := Ideal.Quotient.mk _ r with hi_def
+    have hi_mem : r - Quotient.out i ∈ Ideal.span {α} := by
+      rw [← Ideal.Quotient.eq]
+      conv_rhs => rw [Ideal.Quotient.mk_out]
+    obtain ⟨s, hs⟩ := Ideal.mem_span_singleton.mp hi_mem
+    set j : v.adicCompletionIntegers F ⧸ Ideal.span {β} := Ideal.Quotient.mk _ s with hj_def
+    have hj_mem : s - Quotient.out j ∈ Ideal.span {β} := by
+      rw [← Ideal.Quotient.eq]
+      conv_rhs => rw [Ideal.Quotient.mk_out]
+    obtain ⟨t, ht⟩ := Ideal.mem_span_singleton.mp hj_mem
+    refine ⟨(i, j), ?_⟩
+    simp only
+    conv_rhs => rw [← Ideal.Quotient.mk_out k]
+    rw [Ideal.Quotient.eq, Ideal.mem_span_singleton]
+    exact ⟨-t, by linear_combination -hs - α * ht⟩
+
 /-- `!![α t₁; 0 1]⁻¹ * [α t₂; 0 1] = [1 (t₂ - t₁) / α; 0 1]`. -/
 lemma unipotent_mul_diag_inv_mul_unipotent_mul_diag (t₁ t₂ : v.adicCompletionIntegers F) :
     (unipotent_mul_diag α hα t₁)⁻¹ * unipotent_mul_diag α hα t₂
