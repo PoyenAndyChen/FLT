@@ -160,6 +160,31 @@ lemma canonicalForm (z : D^) : ∃ (N : ℕ+) (z' : 𝓞^), z = j₁ ((N⁻¹ : 
     congr
     simp [mul_comm]
 
+/-- Rational scalars `j₁(q ⊗ₜ 1)` are central in `D^`: they commute with the image of `j₂`.
+This is because `q ⊗ₜ 1 : D` lies in the image of `ℚ → D = ℚ ⊗ 𝓞`, and `ℚ` is the centre of the
+rational quaternions. -/
+lemma j₁_rat_mul_comm (q : ℚ) (z : 𝓞^) :
+    j₁ ((q ⊗ₜ (1 : 𝓞) : D)) * j₂ z = j₂ z * j₁ ((q ⊗ₜ (1 : 𝓞) : D)) := by
+  -- Induct on z viewed as an element of 𝓞 ⊗[ℤ] ZHat
+  induction z using TensorProduct.induction_on with
+  | zero => simp
+  | tmul o s =>
+    -- Both sides equal `(q ⊗ o) ⊗ s` in `(ℚ ⊗ 𝓞) ⊗ ZHat`
+    change ((q ⊗ₜ[ℤ] (1 : 𝓞)) ⊗ₜ[ℤ] (1 : ZHat) : (ℚ ⊗[ℤ] 𝓞) ⊗[ℤ] ZHat) *
+        ((Algebra.TensorProduct.assoc ℤ ℤ ℤ ℚ 𝓞 ZHat).symm
+          ((1 : ℚ) ⊗ₜ[ℤ] (o ⊗ₜ[ℤ] s))) =
+        ((Algebra.TensorProduct.assoc ℤ ℤ ℤ ℚ 𝓞 ZHat).symm
+          ((1 : ℚ) ⊗ₜ[ℤ] (o ⊗ₜ[ℤ] s))) *
+        ((q ⊗ₜ[ℤ] (1 : 𝓞)) ⊗ₜ[ℤ] (1 : ZHat))
+    have h1 : (Algebra.TensorProduct.assoc ℤ ℤ ℤ ℚ 𝓞 ZHat).symm
+        ((1 : ℚ) ⊗ₜ[ℤ] (o ⊗ₜ[ℤ] s)) =
+        (((1 : ℚ) ⊗ₜ[ℤ] o) ⊗ₜ[ℤ] s : (ℚ ⊗[ℤ] 𝓞) ⊗[ℤ] ZHat) := rfl
+    rw [h1, Algebra.TensorProduct.tmul_mul_tmul, Algebra.TensorProduct.tmul_mul_tmul,
+      Algebra.TensorProduct.tmul_mul_tmul, Algebra.TensorProduct.tmul_mul_tmul]
+    simp [mul_one, one_mul, mul_comm]
+  | add x y hx hy =>
+    rw [map_add, mul_add, add_mul, hx, hy]
+
 lemma completed_units (z : D^ˣ) : ∃ (u : Dˣ) (v : 𝓞^ˣ), (z : D^) = j₁ u * j₂ v := sorry
 
 end HurwitzRatHat
