@@ -86,6 +86,16 @@ noncomputable def unipotent_mul_diag (t : v.adicCompletionIntegers F) :
     (GL (Fin 2) (adicCompletion F v)) :=
   (unipotent (t : adicCompletion F v)) * (diag α hα)
 
+/-- `!![α s; 0 1] * !![β t; 0 1] = !![αβ, αt+s; 0 1]`. -/
+lemma unipotent_mul_diag_mul_unipotent_mul_diag
+    {β : v.adicCompletionIntegers F} (hβ : β ≠ 0)
+    (s t : v.adicCompletionIntegers F) :
+    unipotent_mul_diag α hα s * unipotent_mul_diag β hβ t =
+      unipotent_mul_diag (α * β) (mul_ne_zero hα hβ) (α * t + s) := by
+  ext i j
+  push_cast [unipotent_mul_diag, unipotent_def, diag_def]
+  fin_cases i <;> fin_cases j <;> simp [Matrix.mul_apply, Fin.sum_univ_two]
+
 /-- `!![α t₁; 0 1]⁻¹ * [α t₂; 0 1] = [1 (t₂ - t₁) / α; 0 1]`. -/
 lemma unipotent_mul_diag_inv_mul_unipotent_mul_diag (t₁ t₂ : v.adicCompletionIntegers F) :
     (unipotent_mul_diag α hα t₁)⁻¹ * unipotent_mul_diag α hα t₂
@@ -96,6 +106,7 @@ lemma unipotent_mul_diag_inv_mul_unipotent_mul_diag (t₁ t₂ : v.adicCompletio
   rw_mod_cast [unipotent_mul]; push_cast [unipotent_def]
   rw_mod_cast [conjBy_diag]
   simp
+
 
 end GL2
 
