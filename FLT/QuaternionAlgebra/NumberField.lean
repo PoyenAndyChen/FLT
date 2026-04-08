@@ -438,6 +438,49 @@ theorem GL2.TameLevel.isCompact : IsCompact (GL2.TameLevel S).carrier := by
   · exact IsClosed.inter GL2.fullLevel_isCompact.isClosed (GL2.tameLevel_isClosed_aux S)
   · intro x hx; exact hx.1
 
+/-- Any element `u` of `GL2.TameLevel S` can be split as a product `u = u_v * u_v'` where
+`u_v` is the identity outside the place `v` and `u_v'` is the identity at `v`. Both factors
+themselves lie in `GL2.TameLevel S`. -/
+lemma GL2.TameLevel.exists_split_at
+    (S : Finset (HeightOneSpectrum (𝓞 F))) (v : HeightOneSpectrum (𝓞 F))
+    {u : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F)} (hu : u ∈ GL2.TameLevel S) :
+    ∃ (u_v u_v' : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F)),
+      u_v ∈ GL2.TameLevel S ∧ u_v' ∈ GL2.TameLevel S ∧
+      u = u_v * u_v' ∧
+      (∀ w, w ≠ v → GL2.toAdicCompletion w u_v = 1) ∧
+      GL2.toAdicCompletion v u_v' = 1 := by
+  classical
+  -- Define u_v as the image of `mulSingle v (GL2.toAdicCompletion v u)` under the
+  -- restricted product isomorphism, then u_v' := u_v⁻¹ * u.
+  set u_v : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) :=
+    FiniteAdeleRing.GL2.restrictedProduct.symm
+      (RestrictedProduct.mulSingle _ v (GL2.toAdicCompletion v u)) with hu_v_def
+  set u_v' : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) := u_v⁻¹ * u with hu_v'_def
+  -- Key facts about u_v under toAdicCompletion at various places.
+  have h_uv_at_v : GL2.toAdicCompletion v u_v = GL2.toAdicCompletion v u :=
+    GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same v _
+  have h_uv_away : ∀ w, w ≠ v → GL2.toAdicCompletion w u_v = 1 := fun w hwv =>
+    GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _
+  -- u_v ∈ TameLevel S
+  have h_uv_mem : u_v ∈ GL2.TameLevel S := by
+    refine ⟨fun w => ?_, fun w hwS => ?_⟩
+    · by_cases hwv : w = v
+      · subst hwv; rw [h_uv_at_v]; exact hu.1 w
+      · rw [h_uv_away w hwv]; exact one_mem _
+    · by_cases hwv : w = v
+      · subst hwv; rw [h_uv_at_v]; exact hu.2 w hwS
+      · rw [h_uv_away w hwv]; exact one_mem _
+  -- u_v' ∈ TameLevel S (it's the product of u_v⁻¹ and u)
+  have h_uv'_mem : u_v' ∈ GL2.TameLevel S :=
+    (GL2.TameLevel S).mul_mem (inv_mem h_uv_mem) hu
+  -- u = u_v * u_v'
+  have h_prod : u = u_v * u_v' := by
+    rw [hu_v'_def, ← mul_assoc, mul_inv_cancel, one_mul]
+  -- u_v' is identity at v
+  have h_uv'_at_v : GL2.toAdicCompletion v u_v' = 1 := by
+    rw [hu_v'_def, map_mul, map_inv, h_uv_at_v, inv_mul_cancel]
+  exact ⟨u_v, u_v', h_uv_mem, h_uv'_mem, h_prod, h_uv_away, h_uv'_at_v⟩
+
 open scoped TensorProduct.RightActions in
 /-- The subgroup of `(D ⊗ 𝔸_F^∞)ˣ` corresponding to the subgroup `U₁(S)` of `GL₂(𝔸_F^∞)`
 (that is, matrices congruent to `(a *; 0 a) mod v` for all `v ∈ S`) via the rigidification `r`. -/
