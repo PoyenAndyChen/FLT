@@ -492,9 +492,19 @@ noncomputable instance instAlgebra :
       WeightTwoAutomorphicFormOfLevel (U1 r S) R))
 
 noncomputable instance instCommRing :
-    CommRing (HeckeAlgebra F D r S R) where
-  __ := instRing F D r S R
-  mul_comm := sorry -- #585 -- check on generators
+    CommRing (HeckeAlgebra F D r S R) := by
+  -- #585: reduce commutativity of the Hecke algebra to pairwise commutativity of the
+  -- generators `Tᵥ` (for `v ∉ S`) and `Uᵥ,α` (for `v ∈ S`, `α ≠ 0`).
+  unfold HeckeAlgebra
+  apply Algebra.adjoinCommRingOfComm R
+  rintro a ha b hb
+  -- TODO: case split on `ha`, `hb` to handle the four generator pairs:
+  --   (T_v, T_w), (T_v, U_{w,β}), (U_{v,α}, T_w), (U_{v,α}, U_{w,β}).
+  -- The diagonal case (U_{v,α}, U_{v,β}) follows from `HeckeOperator.U_comm`;
+  -- all other cases use `AbstractHeckeOperator.comm` with representatives
+  -- supported at distinct primes, which commute via
+  -- `RestrictedProduct.mul_comm_of_disjoint_mulSupport`.
+  sorry
 
 variable {F S} in
 /-- The Hecke operator Tᵥ as an element of the Hecke algebra. -/
