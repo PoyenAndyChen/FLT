@@ -49,6 +49,26 @@ lemma mul_natCast_mem_span_singleton_of_mul_eq
   rw [heq]
   exact Submodule.smul_mem _ (z' * (k : 𝓞^)) (Submodule.mem_span_singleton_self w')
 
+/-- **Helper for the T-trick (central-multiplication version).** If `x ∈ 𝓞^`
+lies in `Submodule.span 𝓞^ {w'}` and commutes with `c`, then `x * c` also
+lies in the span. This is the clean abstraction used when `x` is central
+(e.g., a natural-number cast like `T = NM * (norm α).toNat` in the T-trick). -/
+lemma mul_mem_span_singleton_of_commute
+    {w' x : 𝓞^} (hx : x ∈ Submodule.span 𝓞^ ({w'} : Set 𝓞^))
+    {c : 𝓞^} (hcomm : Commute x c) :
+    x * c ∈ Submodule.span 𝓞^ ({w'} : Set 𝓞^) := by
+  rw [hcomm.eq]
+  exact Submodule.smul_mem _ c hx
+
+/-- **Specialization to natural-number casts.** Natural number casts are central in
+any ring, so if `(k : 𝓞^) ∈ Submodule.span 𝓞^ {w'}` then `(k : 𝓞^) * c` is in the
+span for any `c`. -/
+lemma natCast_mul_mem_span_singleton
+    {w' : 𝓞^} {k : ℕ} (hk : (k : 𝓞^) ∈ Submodule.span 𝓞^ ({w'} : Set 𝓞^))
+    (c : 𝓞^) :
+    (k : 𝓞^) * c ∈ Submodule.span 𝓞^ ({w'} : Set 𝓞^) :=
+  mul_mem_span_singleton_of_commute hk (Nat.cast_commute k c)
+
 /-- The map `𝓞 → 𝓞^` sending `y` to `y ⊗ₜ 1` is surjective modulo `N`.
 That is, every element of `𝓞 ⊗[ℤ] ZHat` is congruent to an element of `𝓞` modulo `N`. -/
 lemma surjective_pnat_quotient (N : ℕ+) (z : 𝓞 ⊗[ℤ] ZHat) :
