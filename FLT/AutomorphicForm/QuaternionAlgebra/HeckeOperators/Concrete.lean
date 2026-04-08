@@ -261,6 +261,32 @@ lemma U_apply_eq_finsum_unipotent_mul_diag_image (a : WeightTwoAutomorphicFormOf
   (eq_finsum_quotient_out_of_bijOn' a (bijOn_unipotent_mul_diagU1_U1diagU1 r S α hα)) ▸
     U_apply r S R α hα a
 
+/-- A "raw lift" version of `unipotent_mul_diag`: takes an arbitrary `t : 𝓞_v` instead of
+a coset class. This is useful for manipulating products via the local matrix formula. -/
+noncomputable def unipotent_mul_diag_lift (t : adicCompletionIntegers F v) :
+    (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+  Units.mapEquiv r.symm.toMulEquiv
+    (FiniteAdeleRing.GL2.restrictedProduct.symm
+    (RestrictedProduct.mulSingle _ _ (Local.GL2.unipotent_mul_diag α hα t)))
+
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
+lemma unipotent_mul_diag_eq_lift (t : ↑(adicCompletionIntegers F v) ⧸ (Ideal.span {α})) :
+    unipotent_mul_diag r α hα t = unipotent_mul_diag_lift r α hα (Quotient.out t) :=
+  rfl
+
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
+/-- The global multiplication formula for `unipotent_mul_diag_lift`: matches the local
+matrix product formula `!![α,s;0,1] * !![β,t;0,1] = !![αβ, α*t+s; 0,1]`, transported
+through the restricted product + rigidification pipeline. -/
+lemma unipotent_mul_diag_lift_mul {β : v.adicCompletionIntegers F} (hβ : β ≠ 0)
+    (s t : adicCompletionIntegers F v) :
+    unipotent_mul_diag_lift r α hα s * unipotent_mul_diag_lift r β hβ t =
+    unipotent_mul_diag_lift r (α * β) (mul_ne_zero hα hβ)
+      ((α : adicCompletionIntegers F v) * t + s) := by
+  simp only [unipotent_mul_diag_lift, ← map_mul, ← RestrictedProduct.mulSingle_mul]
+  congr 3
+  exact Local.GL2.unipotent_mul_diag_mul_unipotent_mul_diag α hα hβ s t
+
 lemma U_mul_aux {v : HeightOneSpectrum (𝓞 F)}
     {α β : v.adicCompletionIntegers F} (hα : α ≠ 0) (hβ : β ≠ 0)
     (a : WeightTwoAutomorphicFormOfLevel (U1 r S) R) :
