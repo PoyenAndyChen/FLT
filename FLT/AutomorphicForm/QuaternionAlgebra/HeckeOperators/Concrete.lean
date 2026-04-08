@@ -711,7 +711,7 @@ noncomputable instance instCommRing :
       subst hvw
       change HeckeOperator.U r S R α hα * HeckeOperator.U r S R β hβ =
         HeckeOperator.U r S R β hβ * HeckeOperator.U r S R α hα
-      exact HeckeOperator.U_comm r S R hα hβ
+      exact HeckeOperator.U_comm r S R hv hα hβ
     · -- v ≠ w: disjoint support argument.
       sorry
 
