@@ -299,6 +299,19 @@ lemma GL2.toAdicCompletion_restrictedProduct_symm_val_apply
       (FiniteAdeleRing.GL2.restrictedProduct.symm x)).val i j) = (x w).val i j := by
   rfl
 
+/-- The unit-level version of `toAdicCompletion_restrictedProduct_symm_val_apply`:
+applying `GL2.toAdicCompletion w` to the inverse image of `x` under the restricted-
+product equivalence yields `x w` directly. Useful for transporting global statements
+about `GL₂(𝔸_F^∞)` to local statements at each place. -/
+lemma GL2.toAdicCompletion_restrictedProduct_symm_apply
+    (w : HeightOneSpectrum (𝓞 F))
+    (x : Πʳ (v : HeightOneSpectrum (𝓞 F)),
+      [(GL (Fin 2) (v.adicCompletion F)), (M2.localFullLevel v).units]) :
+    GL2.toAdicCompletion w
+      (FiniteAdeleRing.GL2.restrictedProduct.symm x) = x w := by
+  ext i j
+  exact GL2.toAdicCompletion_restrictedProduct_symm_val_apply w x i j
+
 /-- Bridging lemma: applying `GL2.toAdicCompletion w` to the embedding of a single
 local element `g_loc` at place `v` via the restricted product isomorphism gives
 `g_loc` if `w = v` and `1` otherwise. -/
@@ -480,6 +493,65 @@ lemma GL2.TameLevel.exists_split_at
   have h_uv'_at_v : GL2.toAdicCompletion v u_v' = 1 := by
     rw [hu_v'_def, map_mul, map_inv, h_uv_at_v, inv_mul_cancel]
   exact ⟨u_v, u_v', h_uv_mem, h_uv'_mem, h_prod, h_uv_away, h_uv'_at_v⟩
+
+set_option maxHeartbeats 800000 in
+-- Elaborating `Subgroup.map` against the heavily-staged
+-- `FiniteAdeleRing.GL2.restrictedProduct` exceeds default `whnf` budget.
+/-- The transported `GL2.TameLevel S` as a subgroup of the restricted product, via the
+`FiniteAdeleRing.GL2.restrictedProduct` continuous multiplicative equivalence. -/
+noncomputable def GL2.TameLevel.transported
+    (S : Finset (HeightOneSpectrum (𝓞 F))) :
+    Subgroup (Πʳ (v : HeightOneSpectrum (𝓞 F)),
+      [(GL (Fin 2) (v.adicCompletion F)), (M2.localFullLevel v).units]) :=
+  Subgroup.map FiniteAdeleRing.GL2.restrictedProduct.toMulEquiv.toMonoidHom
+    (GL2.TameLevel S)
+
+set_option maxHeartbeats 800000 in
+-- Same reason as `transported`: heavy `Subgroup.map` + restricted-product elaboration.
+/-- The transported `GL2.TameLevel S` subgroup satisfies `isProductAt` at every place `v`.
+This is the key ingredient for reducing the global double coset decomposition to the local
+one via `mem_coset_and_mulSupport_subset_of_isProductAt`. The proof transports
+`GL2.TameLevel.exists_split_at` from the global view through the restricted-product
+equivalence, using `GL2.toAdicCompletion_restrictedProduct_symm_apply` as the bridge. -/
+lemma GL2.TameLevel.isProductAt_transported
+    (S : Finset (HeightOneSpectrum (𝓞 F))) (v : HeightOneSpectrum (𝓞 F)) :
+    SubmonoidClass.isProductAt (GL2.TameLevel.transported S) v := by
+  classical
+  intro u hu
+  -- hu : u ∈ Subgroup.map ... GL2.TameLevel S
+  -- Unpack: ∃ g ∈ GL2.TameLevel S, restrictedProduct g = u
+  obtain ⟨g, hg, hgu⟩ := hu
+  -- Apply PR #47's exists_split_at to g
+  obtain ⟨g_v, g_v', h_gv_mem, h_gv'_mem, h_prod, h_gv_away, h_gv'_at_v⟩ :=
+    GL2.TameLevel.exists_split_at S v hg
+  refine ⟨FiniteAdeleRing.GL2.restrictedProduct g_v, ⟨g_v, h_gv_mem, rfl⟩,
+          FiniteAdeleRing.GL2.restrictedProduct g_v', ⟨g_v', h_gv'_mem, rfl⟩,
+          ?_, ?_, ?_⟩
+  · -- u = restrictedProduct g_v * restrictedProduct g_v'
+    rw [← hgu, ← map_mul, ← h_prod]
+    rfl
+  · -- mulSupport (restrictedProduct g_v) ⊆ {v}
+    intro w hw
+    simp only [Set.mem_singleton_iff]
+    by_contra hne
+    apply hw
+    have h_eq : (FiniteAdeleRing.GL2.restrictedProduct g_v) w =
+        GL2.toAdicCompletion w g_v := by
+      conv_rhs => rw [show g_v = FiniteAdeleRing.GL2.restrictedProduct.symm
+        (FiniteAdeleRing.GL2.restrictedProduct g_v) from
+          (ContinuousMulEquiv.symm_apply_apply _ _).symm]
+      exact (GL2.toAdicCompletion_restrictedProduct_symm_apply w _).symm
+    rw [h_eq, h_gv_away w hne]
+  · -- v ∉ mulSupport (restrictedProduct g_v')
+    intro hv
+    have h_eq : (FiniteAdeleRing.GL2.restrictedProduct g_v') v =
+        GL2.toAdicCompletion v g_v' := by
+      conv_rhs => rw [show g_v' = FiniteAdeleRing.GL2.restrictedProduct.symm
+        (FiniteAdeleRing.GL2.restrictedProduct g_v') from
+          (ContinuousMulEquiv.symm_apply_apply _ _).symm]
+      exact (GL2.toAdicCompletion_restrictedProduct_symm_apply v _).symm
+    apply hv
+    rw [h_eq, h_gv'_at_v]
 
 open scoped TensorProduct.RightActions in
 /-- The subgroup of `(D ⊗ 𝔸_F^∞)ˣ` corresponding to the subgroup `U₁(S)` of `GL₂(𝔸_F^∞)`
