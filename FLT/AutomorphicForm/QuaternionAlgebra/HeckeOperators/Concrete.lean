@@ -780,16 +780,11 @@ lemma T_cosets_global_commute_of_ne
 set_option maxHeartbeats 1600000 in
 -- The `change` tactic triggers significant `whnf` unfolding through the restricted product
 -- + rigidification pipeline when matching `Units.map` against `Units.mapEquiv`.
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
 /-- The global element `g_T_v` used in `HeckeOperator.T` coincides with
 `diag r (localUniformiserInt v) ...` (the global embedding of the local diagonal).
 This bridges `HeckeOperator.T` (which uses `localUniformiserUnit`) with the
 mulSingle-based definition used for the T coset decomposition. -/
--- TODO: This lemma is true by a pointwise computation: both sides are `r.symm` applied
--- to the same `GL₂(FiniteAdeleRing)` element, which at each place `w` is
--- `diag(uniformizer, 1)` if `w = v` and the identity otherwise. The proof requires
--- unfolding `localUniformiserUnit`, `GL2.restrictedProduct`, `Local.GL2.diag`, and
--- `localUniformiserInt` through several layers of the restricted product isomorphism
--- and then comparing matrix entries pointwise.
 lemma T_diag_eq (v : HeightOneSpectrum (𝓞 F)) :
     Units.map r.symm.toMonoidHom (Matrix.GeneralLinearGroup.diagonal
       ![FiniteAdeleRing.localUniformiserUnit F v, 1]) =
@@ -909,6 +904,7 @@ noncomputable def T_U1diagU1 (v : HeightOneSpectrum (𝓞 F)) :
 -- - SurjOn: every coset in the double coset space is represented (using the local SurjOn).
 -- The key fact is that for `v ∉ S`, `U1(S)` at place `v` is `U0(v) = GL₂(𝒪_v)`.
 set_option maxHeartbeats 3200000 in
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
 theorem bijOn_T_cosets_U1diagU1 (v : HeightOneSpectrum (𝓞 F)) (hv : v ∉ S) :
     (T_cosets_image r v).BijOn QuotientGroup.mk (T_U1diagU1 r S v) := by
   set α := localUniformiserInt v with hα_def
