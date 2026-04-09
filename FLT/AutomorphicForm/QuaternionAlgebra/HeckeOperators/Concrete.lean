@@ -471,12 +471,76 @@ theorem bijOn_T_cosets_U1diagU1
     · -- diag': mk(diag') ∈ U1diagU1.
       -- By local mapsTo_T_cosets, ∃ g ∈ U0 * {local_diag}, mk(g) = mk(local_diag').
       -- Extract this witness, lift to global, and verify U1diagU1 membership.
-      obtain ⟨g_loc, hg_loc_mem, hg_loc_eq⟩ :=
+      -- The local mapsTo_T_cosets none gives: mk(diag') ∈ mk''(U0 * {diag})
+      -- i.e. ∃ u ∈ U0, mk(u * diag) = mk(diag') locally.
+      obtain ⟨_, ⟨u_loc, hu_loc, _, rfl, rfl⟩, hg_eq⟩ :=
         Local.mapsTo_T_cosets α hα (by trivial : none ∈ ⊤)
-      -- g_loc is in U0diagU0, so there exists u ∈ U0, g_local ∈ U0 * {diag}
-      -- and mk(g_local) = mk(diag') locally.
-      -- Lift g_local to the global setting and verify U1diagU1 membership.
-      sorry
+      -- (u_loc * diag)⁻¹ * diag' ∈ U0 locally.
+      have hlocal_ratio :
+          (u_loc * Local.GL2.diag α hα)⁻¹ * Local.diag' α hα ∈
+            Local.U0 v := QuotientGroup.eq.mp hg_eq
+      -- Lift u_loc to W_glob via mulSingle at v.
+      set W_glob : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+        Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v u_loc)) with hW_glob_def
+      -- W_glob ∈ U1 r S: u_loc ∈ localFullLevel at v, 1 elsewhere.
+      have hW_glob_mem : W_glob ∈ U1 r S := by
+        refine Subgroup.mem_map.mpr ⟨_, ?_, rfl⟩
+        refine ⟨fun w => ?_, fun w hwS => ?_⟩
+        · by_cases hwv : w = v
+          · subst hwv
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
+            exact hu_loc
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            exact (GL2.localFullLevel w).one_mem
+        · by_cases hwv : w = v
+          · subst hwv; exact absurd hwS hv
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            exact (GL2.localTameLevel w).one_mem
+      -- Show mk(diag') = mk(W_glob * diag) in U1 quotient.
+      -- First show: W_glob * diag ∈ U1 * {diag}.
+      -- Then show: mk(W_glob * diag) = mk(diag').
+      refine ⟨W_glob * diag r α hα, Set.mul_mem_mul hW_glob_mem rfl, ?_⟩
+      -- Need: (W_glob * diag)⁻¹ * diag' ∈ U1 (quotient equality).
+      apply (QuotientGroup.eq (s := U1 r S)).mpr
+      refine Subgroup.mem_map.mpr ?_
+      -- Build the global ratio element.
+      set W_ratio : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) :=
+        FiniteAdeleRing.GL2.restrictedProduct.symm
+          (RestrictedProduct.mulSingle _ v
+            ((u_loc * Local.GL2.diag α hα)⁻¹ * Local.diag' α hα))
+      refine ⟨W_ratio, ?_, ?_⟩
+      · -- W_ratio ∈ TameLevel S
+        refine ⟨fun w => ?_, fun w hwS => ?_⟩
+        · by_cases hwv : w = v
+          · subst hwv
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
+            exact hlocal_ratio
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            exact (GL2.localFullLevel w).one_mem
+        · by_cases hwv : w = v
+          · subst hwv; exact absurd hwS hv
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            exact (GL2.localTameLevel w).one_mem
+      · -- Units.map r.symm W_ratio = (W_glob * diag)⁻¹ * diag'
+        rw [hW_glob_def]
+        show Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v
+              ((u_loc * Local.GL2.diag α hα)⁻¹ * Local.diag' α hα))) =
+          (Units.mapEquiv r.symm.toMulEquiv
+            (FiniteAdeleRing.GL2.restrictedProduct.symm
+              (RestrictedProduct.mulSingle _ v u_loc)) *
+           Units.mapEquiv r.symm.toMulEquiv
+            (FiniteAdeleRing.GL2.restrictedProduct.symm
+              (RestrictedProduct.mulSingle _ v (Local.GL2.diag α hα))))⁻¹ *
+          Units.mapEquiv r.symm.toMulEquiv
+            (FiniteAdeleRing.GL2.restrictedProduct.symm
+              (RestrictedProduct.mulSingle _ v (Local.diag' α hα)))
+        simp only [← map_mul, ← map_inv,
+          ← RestrictedProduct.mulSingle_mul,
+          ← RestrictedProduct.mulSingle_inv]
   · -- InjOn: distinct T_cosets_image elements give distinct cosets.
     rintro _ (⟨i, _, rfl⟩ | rfl) _ (⟨j, _, rfl⟩ | rfl) h
     · -- unipotent/unipotent: adapted from existing InjOn (lines 273-338)
@@ -1120,9 +1184,12 @@ noncomputable instance instCommRing :
     · -- v = w: T_v = T_w, so the product commutes with itself trivially.
       subst hvw
       rfl
-    · -- v ≠ w: use AbstractHeckeOperator.comm with T_cosets_image for both T_v and T_w.
-      -- Needs bijOn_T_cosets_U1diagU1 (available with sorry) and
-      -- T_cosets_image_commute_of_ne (proved).
+    · -- v ≠ w: disjoint support via AbstractHeckeOperator.comm.
+      unfold HeckeOperator.T
+      apply AbstractHeckeOperator.comm (R := R)
+      -- Supply T_cosets_image + bijOn for both T_v and T_w, + commutativity.
+      -- The uniformizer at each place is irreducible.
+      -- Need: Irreducible (uniformizer) + correct type for T_cosets_image/bijOn
       sorry
   · -- (T_v, U_{w,β}): good prime T_v commutes with bad prime U_{w,β}.
     -- Since v ∉ S and w ∈ S, we have v ≠ w.
