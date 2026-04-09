@@ -11,6 +11,9 @@ import Mathlib.FieldTheory.IsSepClosed
 import Mathlib.RepresentationTheory.Basic
 import Mathlib.Topology.Instances.ZMod
 import FLT.Deformations.RepresentationTheory.GaloisRep
+import Mathlib.GroupTheory.FiniteAbelian.Basic
+import Mathlib.GroupTheory.SpecificGroups.Cyclic
+import Mathlib.LinearAlgebra.Basis.VectorSpace
 
 /-!
 
@@ -49,9 +52,131 @@ theorem WeierstrassCurve.n_torsion_finite {n : ℕ} (hn : 0 < n) : Finite (E.n_t
 theorem WeierstrassCurve.n_torsion_card [IsSepClosed k] {n : ℕ} (hn : (n : k) ≠ 0) :
     Nat.card (E.n_torsion n) = n^2 := sorry
 
+/-! ### Helper lemmas for `group_theory_lemma` -/
+
+section group_theory_lemma_helpers
+
+/-- Bezout-based: if d • x = 0 and n • x = 0 in an abelian group, then gcd(d,n) • x = 0. -/
+private lemma smul_natGcd_eq_zero' {A : Type*} [AddCommGroup A]
+    (d n : ℕ) {x : A} (hd : (d : ℤ) • x = 0) (hn : (n : ℤ) • x = 0) :
+    (Nat.gcd d n : ℤ) • x = 0 := by
+  rw [show (Nat.gcd d n : ℤ) = ((d : ℤ).gcd (n : ℤ) : ℤ) from by simp [Int.gcd_natCast_natCast],
+      Int.gcd_eq_gcd_ab (d : ℤ) (n : ℤ), add_smul, mul_comm (d : ℤ), mul_smul,
+      mul_comm (n : ℤ), mul_smul, hd, hn, smul_zero, smul_zero, add_zero]
+
+/-- The d-torsion of the n-torsion equals the gcd(d,n)-torsion (as cardinalities).
+Concretely: A[n][d] has the same number of elements as A[gcd(d,n)], because an element
+x satisfies both n • x = 0 and d • x = 0 if and only if gcd(d,n) • x = 0. -/
+private theorem card_torsionBy_of_torsionBy' {A : Type*} [AddCommGroup A] (n d : ℕ) :
+    Nat.card (Submodule.torsionBy ℤ (Submodule.torsionBy ℤ A n) d) =
+    Nat.card (Submodule.torsionBy ℤ A (Nat.gcd d n)) := by
+  apply Nat.card_congr
+  refine Equiv.ofBijective (fun x => ⟨x.1.1, ?_⟩) ⟨?_, ?_⟩
+  · rw [Submodule.mem_torsionBy_iff]
+    have hd : (d : ℤ) • (x.1 : A) = 0 := by
+      have h := x.2; rw [Submodule.mem_torsionBy_iff] at h
+      exact_mod_cast congr_arg Subtype.val h
+    have hn : (n : ℤ) • (x.1 : A) = 0 := by
+      have h := x.1.2; rw [Submodule.mem_torsionBy_iff] at h; exact h
+    exact smul_natGcd_eq_zero' d n hd hn
+  · intro x y heq
+    simp only [Subtype.mk.injEq] at heq
+    ext; exact heq
+  · intro ⟨a, ha⟩
+    rw [Submodule.mem_torsionBy_iff] at ha
+    have hd : (d : ℤ) • a = 0 := by
+      obtain ⟨k, hk⟩ : (Nat.gcd d n : ℤ) ∣ d := by exact_mod_cast Nat.gcd_dvd_left d n
+      rw [hk, mul_comm, mul_smul, ha, smul_zero]
+    have hn : (n : ℤ) • a = 0 := by
+      obtain ⟨k, hk⟩ : (Nat.gcd d n : ℤ) ∣ n := by exact_mod_cast Nat.gcd_dvd_right d n
+      rw [hk, mul_comm, mul_smul, ha, smul_zero]
+    refine ⟨⟨⟨a, ?_⟩, ?_⟩, rfl⟩
+    · rw [Submodule.mem_torsionBy_iff]; exact hn
+    · rw [Submodule.mem_torsionBy_iff]
+      change (d : ℤ) • (⟨a, _⟩ : Submodule.torsionBy ℤ A n) = 0
+      ext; simp [hd]
+
+/-- The torsion submodule distributes over pi types. -/
+private def torsionBy_pi_equiv' {ι : Type*} {M : ι → Type*} [∀ i, AddCommGroup (M i)]
+    (R : Type*) [CommRing R] [∀ i, Module R (M i)] (a : R) :
+    Submodule.torsionBy R (∀ i, M i) a ≃ ∀ i, Submodule.torsionBy R (M i) a where
+  toFun x := fun i => ⟨(x.1 i), by
+    rw [Submodule.mem_torsionBy_iff]
+    have h := x.2; rw [Submodule.mem_torsionBy_iff] at h
+    exact congr_fun h i⟩
+  invFun f := ⟨fun i => (f i).1, by
+    rw [Submodule.mem_torsionBy_iff]
+    funext i
+    have h := (f i).2; rw [Submodule.mem_torsionBy_iff] at h
+    simp [h]⟩
+  left_inv x := by ext; rfl
+  right_inv f := by ext; rfl
+
+/-- The cardinality of the d-torsion of ZMod n (for n > 0, d : ℕ) is gcd(d, n).
+Uses the fact that ZMod n is an additive cyclic group and the kernel formula
+from `IsAddCyclic.card_nsmulAddMonoidHom_ker`. -/
+private theorem card_torsionBy_zmod_nat' (n d : ℕ) [NeZero n] :
+    Nat.card (Submodule.torsionBy ℤ (ZMod n) (d : ℤ)) = Nat.gcd d n := by
+  have h_eq : Nat.card (Submodule.torsionBy ℤ (ZMod n) (d : ℤ)) =
+    Nat.card ((nsmulAddMonoidHom d : ZMod n →+ ZMod n).ker) := by
+    apply Nat.card_congr
+    refine Equiv.subtypeEquiv (Equiv.refl _) ?_
+    intro x
+    simp [Submodule.mem_torsionBy_iff, AddMonoidHom.mem_ker, nsmulAddMonoidHom,
+          Nat.cast_smul_eq_nsmul ℤ]
+  rw [h_eq, IsAddCyclic.card_nsmulAddMonoidHom_ker, Nat.card_zmod, Nat.gcd_comm]
+
+/-- Extension of `card_torsionBy_zmod_nat'` to integer argument d. -/
+private theorem card_torsionBy_zmod' (n : ℕ) [NeZero n] (d : ℤ) :
+    Nat.card (Submodule.torsionBy ℤ (ZMod n) d) = Int.gcd d n := by
+  have h_eq : Submodule.torsionBy ℤ (ZMod n) d =
+      Submodule.torsionBy ℤ (ZMod n) (d.natAbs : ℤ) := by
+    ext x
+    simp only [Submodule.mem_torsionBy_iff]
+    rcases Int.natAbs_eq d with hd | hd <;>
+    · constructor
+      · intro h; rw [hd] at h; simpa using h
+      · intro h; rw [hd]; simpa using h
+  rw [h_eq, card_torsionBy_zmod_nat']
+  simp [Int.gcd, Int.natAbs_natCast]
+
+/-- The cardinality of the d-torsion of (Fin r → ZMod n) is (Int.gcd d n)^r. -/
+private theorem card_torsionBy_pi_zmod' (n r : ℕ) [NeZero n] (d : ℤ) :
+    Nat.card (Submodule.torsionBy ℤ (Fin r → ZMod n) d) = (Int.gcd d n) ^ r := by
+  rw [Nat.card_congr (torsionBy_pi_equiv' ℤ d), Nat.card_pi, Finset.prod_const,
+      Finset.card_univ, Fintype.card_fin, card_torsionBy_zmod']
+
+/-- Two finite abelian groups with the same d-torsion cardinality for all d are isomorphic.
+This follows from the uniqueness of the invariant factor decomposition: the function
+d ↦ |G[d]| determines the multiset of elementary divisors p^e in the structure theorem
+decomposition G ≃ ⨁ᵢ ℤ/nᵢℤ. -/
+private theorem addEquiv_of_torsionBy_card_eq' {G H : Type*}
+    [AddCommGroup G] [AddCommGroup H] [Finite G] [Finite H]
+    (h : ∀ d : ℕ, Nat.card (Submodule.torsionBy ℤ G d) =
+      Nat.card (Submodule.torsionBy ℤ H d)) :
+    Nonempty (G ≃+ H) := by
+  sorry
+
+end group_theory_lemma_helpers
+
 theorem group_theory_lemma {A : Type*} [AddCommGroup A] {n : ℕ} (hn : 0 < n) (r : ℕ)
     (h : ∀ d : ℕ, d ∣ n → Nat.card (Submodule.torsionBy ℤ A d) = d ^ r) :
-    Nonempty ((Submodule.torsionBy ℤ A n) ≃+ (Fin r → (ZMod n))) := sorry
+    Nonempty ((Submodule.torsionBy ℤ A n) ≃+ (Fin r → (ZMod n))) := by
+  -- Step 1: A[n] is finite (from h at d = n, giving |A[n]| = n^r > 0)
+  have hfin : Finite (Submodule.torsionBy ℤ A n) :=
+    Nat.finite_of_card_ne_zero (by rw [h n dvd_rfl]; exact pow_ne_zero _ hn.ne')
+  -- Step 2: (Fin r → ZMod n) is finite
+  haveI : NeZero n := ⟨hn.ne'⟩
+  haveI : Finite (Fin r → ZMod n) := Pi.finite
+  -- Step 3: Apply uniqueness of invariant factors.
+  -- We show the d-torsion cardinalities of A[n] and (Fin r → ZMod n) agree for ALL d.
+  -- For any d: |A[n][d]| = |A[gcd(d,n)]| (by card_torsionBy_of_torsionBy')
+  --            = gcd(d,n)^r           (by h, since gcd(d,n) | n)
+  --            = |(Fin r → ZMod n)[d]| (by card_torsionBy_pi_zmod')
+  apply addEquiv_of_torsionBy_card_eq'
+  intro d
+  rw [card_torsionBy_of_torsionBy', card_torsionBy_pi_zmod', Int.gcd_natCast_natCast]
+  exact h _ (Nat.gcd_dvd_right d n)
 
 -- I only need this if n is prime but there's no harm thinking about it in general I guess.
 -- It follows from the previous theorem using pure group theory (possibly including the
