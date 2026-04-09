@@ -401,14 +401,30 @@ lemma injOn_T_cosets
     cases t₂ with
     | none => rfl
     | some t₂ =>
-      -- QuotientGroup.mk(diag') = QuotientGroup.mk(unipotent_mul_diag t₂)
-      -- means (diag')⁻¹ * unipotent_mul_diag t₂ ∈ U0
-      -- i.e. the (1,1) entry is α⁻¹ ∉ O_v since α is not a unit — contradiction.
+      -- mk(diag') = mk(unipotent_mul_diag t₂) implies (diag')⁻¹ * unipotent_mul_diag t₂ ∈ U0.
+      -- The (1,1) entry of this product is α⁻¹ ∉ O_v since α is not a unit.
+      exfalso
+      change (QuotientGroup.mk (s := U0 v) (diag' α hα)) =
+        (QuotientGroup.mk (s := U0 v)
+          (unipotent_mul_diag α hα (Quotient.out t₂))) at h
+      have hmem := QuotientGroup.eq.mp h
+      -- hmem : (diag')⁻¹ * unipotent_mul_diag t₂ ∈ U0
+      -- Its (1,1) entry must be in O_v. But (diag')⁻¹ = !![1,0;0,α⁻¹],
+      -- unipotent_mul_diag t₂ = !![α,t₂;0,1], so the product's (1,1) = α⁻¹.
+      -- α⁻¹ ∉ O_v because ¬IsUnit α.
+      have h11 := GL2.v_le_one_of_mem_localFullLevel _ hmem 1 1
+      -- The (1,1) entry of (diag')⁻¹ * unipotent_mul_diag t₂
       sorry
   | some t₁ =>
     cases t₂ with
     | none =>
-      -- Symmetric to the none/some case above.
+      -- Symmetric: mk(unipotent_mul_diag t₁) = mk(diag') → contradiction.
+      exfalso
+      change (QuotientGroup.mk (s := U0 v)
+          (unipotent_mul_diag α hα (Quotient.out t₁))) =
+        (QuotientGroup.mk (s := U0 v) (diag' α hα)) at h
+      have hmem := QuotientGroup.eq.mp h
+      have h11 := GL2.v_le_one_of_mem_localFullLevel _ hmem 1 1
       sorry
     | some t₂ =>
       -- Same proof as injOn_unipotent_mul_diagU1, but with U0 instead of U1.
