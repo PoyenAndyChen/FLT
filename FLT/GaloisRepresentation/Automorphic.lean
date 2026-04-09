@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Edison Xie, Kevin Buzzard
 -/
 import FLT.AutomorphicForm.QuaternionAlgebra.HeckeOperators.Concrete
+import FLT.Mathlib.Algebra.Central.TensorProduct
 import FLT.DedekindDomain.IntegralClosure
 import FLT.Deformations.RepresentationTheory.GaloisRep
 import Mathlib.NumberTheory.Cyclotomic.CyclotomicCharacter
@@ -103,7 +104,8 @@ instance {F E D : Type*}
     exact (IsSimpleRing.of_ringEquiv (Algebra.TensorProduct.comm F D E).toRingEquiv) inferInstance
   isCentral := by
     -- Z_E(E ⊗_F D) = E ⊗_F Z_F(D) = E ⊗_F F = E.
-    sorry
+    haveI := @IsQuaternionAlgebra.isCentral F _ D _ _ _
+    infer_instance
   dim_four := by
     -- rank E (E ⊗[F] D) = rank F D = 4.
     haveI : Module.Free F D := Module.Free.of_divisionRing F D
