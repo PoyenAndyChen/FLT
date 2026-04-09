@@ -47,7 +47,10 @@ namespace AutomorphicForm
 
 def GLn.Weight.IsTrivial {n : ℕ} (ρ : Weight n) : Prop := ρ.w.rho = 1
 
-open GLn
+open GLn Manifold
+
+attribute [local instance] Matrix.linftyOpNormedAddCommGroup Matrix.linftyOpNormedSpace
+  Matrix.linftyOpNormedRing Matrix.linftyOpNormedAlgebra
 
 namespace GL0
 
@@ -64,13 +67,80 @@ def ofComplex (c : ℂ) : AutomorphicFormForGLnOverQ 0 ρ := {
     is_periodic := by simp
     is_slowly_increasing x := ⟨‖c‖, 0, by simp⟩
     is_finite_cod := by
-      intros x
-      rw [FiniteDimensional, annihilator]
-      sorry -- weird typeclass timeout
-      -- exact {
-      --   fg_top := by
-      --     sorry
-      -- }
+      intro x
+      -- For n=0, GL(Fin 0) ℝ is a point (Subsingleton).
+      -- The Lie algebra is trivial, so UEA ≅ ℂ, Z ≅ ℂ,
+      -- and any quotient of Z is finite-dimensional.
+      haveI : Subsingleton (GL (Fin 0) ℝ) := inferInstance
+      -- Step 1: LeftInvariantDerivation is unique (trivial).
+      -- Every smooth function on a one-point space is constant,
+      -- and derivations kill constants (algebraMap).
+      haveI : Unique (LeftInvariantDerivation 𝓘(ℝ, Matrix (Fin 0) (Fin 0) ℝ) (GL (Fin 0) ℝ)) := by
+        refine ⟨⟨0⟩, fun a => ?_⟩
+        ext f g
+        have hf : f = algebraMap ℝ _ (f 1) := by
+          ext ⟨y, hy⟩
+          simp [Algebra.algebraMap_eq_smul_one]
+          congr 1
+          exact Subsingleton.elim _ _
+        rw [hf]
+        have h := a.toDerivation.map_algebraMap (f 1)
+        change (a.toDerivation (algebraMap ℝ _ (f 1))) g =
+          (0 : C^⊤⟮𝓘(ℝ, Matrix (Fin 0) (Fin 0) ℝ),
+            GL (Fin 0) ℝ; 𝓘(ℝ, ℝ), ℝ⟯) g
+        simp [h]
+      -- LeftInvariantDerivation is Unique, so UEA(0) = ℂ.
+      -- algebraMap ℂ → Alg is surjective, Z is f.d.
+      let ret : Alg (GL (Fin 0) ℝ) (Matrix (Fin 0) (Fin 0) ℝ)
+          →ₐ[ℂ] ℂ := UniversalEnvelopingAlgebra.lift ℂ 0
+      have h_section : ∀ a, algebraMap ℂ
+          (Alg (GL (Fin 0) ℝ) (Matrix (Fin 0) (Fin 0) ℝ))
+          (ret a) = a := by
+        intro a
+        letI : Ring
+            (Alg (GL (Fin 0) ℝ)
+              (Matrix (Fin 0) (Fin 0) ℝ)) :=
+          inferInstanceAs
+            (Ring (UniversalEnvelopingAlgebra ℂ _))
+        let A :=
+          Alg (GL (Fin 0) ℝ) (Matrix (Fin 0) (Fin 0) ℝ)
+        have key : (Algebra.ofId ℂ A).comp ret =
+            AlgHom.id ℂ A := by
+          change (Algebra.ofId ℂ A).comp ret =
+            AlgHom.id ℂ A
+          have h1 : (Algebra.ofId ℂ A).comp ret =
+            (UniversalEnvelopingAlgebra.lift (R := ℂ) (A := A))
+              ((UniversalEnvelopingAlgebra.lift (R := ℂ) (A := A)).symm
+                ((Algebra.ofId ℂ A).comp ret)) :=
+            ((UniversalEnvelopingAlgebra.lift (R := ℂ) (A := A)).apply_symm_apply _).symm
+          have h2 : AlgHom.id ℂ A =
+            (UniversalEnvelopingAlgebra.lift (R := ℂ) (A := A))
+              ((UniversalEnvelopingAlgebra.lift (R := ℂ) (A := A)).symm
+                (AlgHom.id ℂ A)) :=
+            ((UniversalEnvelopingAlgebra.lift (R := ℂ) (A := A)).apply_symm_apply _).symm
+          rw [h1, h2]; congr 1; ext l
+          simp [show l = 0 from Subsingleton.elim _ _]
+        have h := AlgHom.congr_fun key a
+        simp only [AlgHom.comp_apply,
+          Algebra.ofId_apply] at h
+        exact h
+      have hAlg_surj : Function.Surjective
+          (algebraMap ℂ (Alg (GL (Fin 0) ℝ)
+            (Matrix (Fin 0) (Fin 0) ℝ))) :=
+        fun a => ⟨ret a, h_section a⟩
+      let toZ : ℂ →ₗ[ℂ]
+          ↥(Z (GL (Fin 0) ℝ)
+            (Matrix (Fin 0) (Fin 0) ℝ)) :=
+        { toFun := fun z => ⟨algebraMap ℂ _ z, Subalgebra.algebraMap_mem _ z⟩
+          map_add' := by intro a b; ext; simp [map_add]
+          map_smul' := by intro a b; ext; simp [Algebra.smul_def] }
+      have htoZ_surj : Function.Surjective toZ := by
+        intro ⟨a, ha⟩
+        obtain ⟨z, hz⟩ := hAlg_surj a
+        exact ⟨z, by ext; exact hz⟩
+      haveI : Module.Finite ℂ ↥(Z (GL (Fin 0) ℝ) (Matrix (Fin 0) (Fin 0) ℝ)) :=
+        Module.Finite.of_surjective toZ htoZ_surj
+      exact Module.Finite.quotient _ _
     has_finite_level := by
       let U : Subgroup (GL (Fin 0) (IsDedekindDomain.FiniteAdeleRing ℤ ℚ)) := {
         carrier := {1},
