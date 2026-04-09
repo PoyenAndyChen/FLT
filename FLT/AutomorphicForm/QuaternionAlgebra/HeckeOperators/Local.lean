@@ -423,7 +423,7 @@ lemma injOn_T_cosets
         sub_zero, Ring.inverse_eq_inv', Matrix.adjugate_fin_two_of, neg_zero,
         Matrix.smul_of, Matrix.smul_cons, smul_eq_mul, Matrix.smul_empty,
         Matrix.cons_mul, Matrix.vecMul_cons, Matrix.head_cons, Matrix.tail_cons,
-        Matrix.empty_vecMul, Fin.isValue] at h11
+        Fin.isValue] at h11
       -- h11 now shows the (1,1) entry has valuation ≤ 1
       -- This entry is α⁻¹, and since α is not a unit, α⁻¹ has valuation > 1.
       apply hα_nonunit
@@ -478,18 +478,49 @@ is a unit (reducing to the `unipotent_mul_diag` case) or in the maximal ideal
 lemma surjOn_T_cosets_U0diagU0
     (hα_gen : Ideal.span {α} = IsLocalRing.maximalIdeal (adicCompletionIntegers F v)) :
     Set.SurjOn (T_cosets v α hα) ⊤ (U0diagU0 v α hα) := by
-  /- Proof outline:
-  Given x ∈ U0 = GL₂(𝒪_v), let a, b, c, d be the matrix entries.
-  Case split on whether d is a unit in 𝒪_v:
-  - Case 1 (d ∈ 𝒪_v×): The coset equals unipotent_mul_diag(⅟d * b).
-    Same argument as surjOn_unipotent_mul_diagU1_U1diagU1: conjugation by diag
-    sends unipotent(⅟d * b)⁻¹ * x into U0 because entry (0,1) ∈ Ideal.span {α}.
-  - Case 2 (d ∈ maximal ideal): The coset equals diag'.
-    Since α generates maximalIdeal (hα_gen), d ∈ α𝒪_v, so α⁻¹d ∈ 𝒪_v.
-    The matrix diag'⁻¹ * x * diag = !![aα, b; c, α⁻¹d] has all entries in 𝒪_v
-    and det = det(x) ∈ 𝒪_v×, so it's in U0.
-  -/
-  sorry
+  rintro _ ⟨_, ⟨x, hx, _, rfl, rfl⟩, rfl⟩
+  -- x ∈ U0 = GL₂(O_v). Extract matrix entries as elements of O_v.
+  let a : (adicCompletionIntegers F v) :=
+    ⟨_, GL2.v_le_one_of_mem_localFullLevel _ hx 0 0⟩
+  let b : (adicCompletionIntegers F v) :=
+    ⟨_, GL2.v_le_one_of_mem_localFullLevel _ hx 0 1⟩
+  let c : (adicCompletionIntegers F v) :=
+    ⟨_, GL2.v_le_one_of_mem_localFullLevel _ hx 1 0⟩
+  let d : (adicCompletionIntegers F v) :=
+    ⟨_, GL2.v_le_one_of_mem_localFullLevel _ hx 1 1⟩
+  have hx₁ : x = !![(a : adicCompletion F v), b; c, d] :=
+    (Matrix.etaExpand_eq
+      (x : Matrix (Fin 2) (Fin 2) (adicCompletion F v))).symm
+  -- Case split: is d a unit in O_v?
+  by_cases hd : IsUnit d
+  · -- Case 1: d is a unit → same as surjOn_unipotent_mul_diagU1_U1diagU1.
+    -- Representative: unipotent_mul_diag(⅟d * b).
+    letI invertible_d := hd.invertible
+    let t : ↥(adicCompletionIntegers F v) ⧸ (Ideal.span {α}) :=
+      (⅟d * b)
+    use (some t)
+    refine ⟨Set.mem_univ _, ?_⟩
+    -- Show mk(x * diag) = mk(unipotent_mul_diag (Quotient.out t))
+    -- Goal: T_cosets v α hα (some t) = mk(x * diag)
+    -- i.e.: mk(unipotent_mul_diag(out t)) = mk(x * diag)
+    -- Adapted from surjOn_unipotent_mul_diagU1_U1diagU1 (Local.lean:265).
+    sorry
+  · -- Case 2: d is not a unit (d ∈ maximal ideal).
+    -- Representative: diag'.
+    -- Since d ∈ maximalIdeal = Ideal.span {α}, get q with d = α * q.
+    have hd_mem : d ∈ IsLocalRing.maximalIdeal
+        (adicCompletionIntegers F v) := by
+      rwa [IsLocalRing.mem_maximalIdeal]
+    have hd_span : d ∈ Ideal.span {α} := hα_gen ▸ hd_mem
+    use none
+    refine ⟨Set.mem_univ _, ?_⟩
+    -- Goal: T_cosets v α hα none = mk(x * diag)
+    -- i.e.: mk(diag') = mk(x * diag)
+    -- Need: (diag')⁻¹ * (x * diag) ∈ U0 = GL₂(O_v)
+    -- Computation: (diag')⁻¹ * x * diag = !![aα, b; c, α⁻¹d]
+    -- where α⁻¹d ∈ O_v (since d ∈ Ideal.span {α}).
+    -- det = det(x) ∈ O_v×.
+    sorry
 
 /-- The double coset `U0 · diag(α, 1) · U0` decomposes as a disjoint union of `q + 1`
 left cosets, indexed by `Option (𝒪_v / α𝒪_v)`. This is the key decomposition used
