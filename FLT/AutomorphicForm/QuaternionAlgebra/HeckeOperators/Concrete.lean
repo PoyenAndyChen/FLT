@@ -684,7 +684,41 @@ theorem bijOn_T_cosets_U1diagU1
             (g_loc * Local.GL2.diag α hα) ∈ Local.U0 v :=
         QuotientGroup.eq.mp hidx
       refine ⟨diag' r α hα, Or.inr rfl, ?_⟩
-      sorry
+      -- Show mk(diag') = mk(u * diag)
+      apply QuotientGroup.eq.mpr
+      refine Subgroup.mem_map.mpr ?_
+      set W : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) :=
+        (FiniteAdeleRing.GL2.restrictedProduct.symm
+          (RestrictedProduct.mulSingle _ v (Local.diag' α hα)))⁻¹ *
+        (w * FiniteAdeleRing.GL2.restrictedProduct.symm
+          (RestrictedProduct.mulSingle _ v (Local.GL2.diag α hα))) with hW_def
+      refine ⟨W, ?_, ?_⟩
+      · -- W ∈ GL2.TameLevel S
+        refine ⟨fun w_place => ?_, fun w_place hwS => ?_⟩
+        · by_cases hwv : w_place = v
+          · subst hwv; rw [hW_def]; simp only [map_mul, map_inv]
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same,
+              FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
+            exact hlocal_ratio
+          · rw [hW_def]; simp only [map_mul, map_inv]
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv,
+              FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            simp only [inv_one, one_mul, mul_one]; exact hw_mem.1 w_place
+        · by_cases hwv : w_place = v
+          · subst hwv; rw [hW_def]; simp only [map_mul, map_inv]
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same,
+              FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
+            sorry -- Vacuous: v ∈ S contradicts v ∉ S
+          · rw [hW_def]; simp only [map_mul, map_inv]
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv,
+              FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            simp only [inv_one, one_mul, mul_one]; exact hw_mem.2 w_place hwS
+      · -- Units.map r.symm W = ratio
+        rw [← hw_eq]
+        change Units.map r.symm.toMonoidHom W =
+          (diag' r α hα)⁻¹ *
+            (Units.map r.symm.toMonoidHom w * diag r α hα)
+        rw [hW_def]; simp only [map_mul, map_inv]; rfl
 
 omit [IsTotallyReal F] in
 lemma quot_top_finite (r : Rigidification F D) (α : v.adicCompletionIntegers F) (hα : α ≠ 0) :
