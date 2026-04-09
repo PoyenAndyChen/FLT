@@ -812,7 +812,86 @@ lemma T_diag_eq (v : HeightOneSpectrum (𝓞 F)) :
   -- The proof requires unfolding `GL2.restrictedProduct` (which is
   -- `ContinuousMulEquiv.restrictedProductMatrixUnits`) and comparing entry-by-entry at each
   -- local place. This is a straightforward but tedious definitional computation.
-  sorry
+  -- Both sides are GL₂(FiniteAdeleRing) elements. We show they are equal
+  -- at each local place w, using the restricted product isomorphism.
+  -- Since GL2.toAdicCompletion determines elements (via the restricted product iso),
+  -- it suffices to show GL2.toAdicCompletion w agrees for all w.
+  have h : ∀ w, FiniteAdeleRing.GL2.toAdicCompletion w
+      (Matrix.GeneralLinearGroup.diagonal
+        ![FiniteAdeleRing.localUniformiserUnit F v, 1]) =
+      FiniteAdeleRing.GL2.toAdicCompletion w
+        ((FiniteAdeleRing.GL2.restrictedProduct (F := F)).symm
+          (RestrictedProduct.mulSingle _ _ (Local.GL2.diag (localUniformiserInt v)
+            (localUniformiserInt_ne_zero v)))) := by
+    intro w
+    by_cases hwv : w = v
+    · subst hwv
+      rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
+      -- Goal: GL2.toAdicCompletion w (diagonal ![localUniformiserUnit w, 1])
+      --     = Local.GL2.diag (localUniformiserInt w) ...
+      -- Both are diagonal matrices with the uniformizer at (0,0) and 1 at (1,1).
+      ext i j
+      -- Unfold both sides to concrete matrix entries.
+      simp only [FiniteAdeleRing.GL2.toAdicCompletion, Units.coe_map,
+        MonoidHom.coe_coe, RingHom.mapMatrix_apply, Matrix.map_apply]
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.diagonal, Local.GL2.diag,
+          localUniformiserInt, FiniteAdeleRing.localUniformiserUnit,
+          FiniteAdeleRing.localUniformiser,
+          show (FiniteAdeleRing.toAdicCompletion w)
+            (⟨Pi.mulSingle w (w.adicCompletionUniformizer F), _⟩ :
+              FiniteAdeleRing (𝓞 F) F) =
+            Pi.mulSingle w (w.adicCompletionUniformizer F) w
+          from rfl]
+    · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+      ext i j
+      simp only [FiniteAdeleRing.GL2.toAdicCompletion, Units.coe_map,
+        MonoidHom.coe_coe, RingHom.mapMatrix_apply, Matrix.map_apply,
+        Units.val_one, Matrix.one_apply]
+      -- `toAdicCompletion w` is evaluation at `w` on FiniteAdeleRing (a restricted product).
+      -- `localUniformiser v` is a mulSingle, so at `w ≠ v` it evaluates to 1.
+      -- The key: `toAdicCompletion w (localUniformiser v) = 1` for `w ≠ v`.
+      have heval1 : (FiniteAdeleRing.toAdicCompletion (F := F) w)
+          (FiniteAdeleRing.localUniformiser F v) = 1 := by
+        have : (FiniteAdeleRing.localUniformiser F v).1 w = 1 := by
+          simp [FiniteAdeleRing.localUniformiser, Pi.mulSingle_eq_of_ne hwv]
+        exact this
+      -- `localUniformiserUnit` has the same val as `localUniformiser`:
+      have hval : (FiniteAdeleRing.localUniformiserUnit F v : FiniteAdeleRing (𝓞 F) F) =
+          FiniteAdeleRing.localUniformiser F v := rfl
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.diagonal, FiniteAdeleRing.localUniformiserUnit,
+          hval, heval1]
+  -- Now conclude: both GL₂(FiniteAdeleRing) elements agree at every place via `h`.
+  -- Use `EmbeddingLike.apply_eq_iff_eq` to cancel the `restrictedProduct.symm` equiv,
+  -- reducing to showing equality in the restricted product, then use `RestrictedProduct.ext_iff`.
+  rw [← EmbeddingLike.apply_eq_iff_eq (FiniteAdeleRing.GL2.restrictedProduct (F := F)),
+    (FiniteAdeleRing.GL2.restrictedProduct (F := F)).apply_symm_apply,
+    RestrictedProduct.ext_iff]
+  intro w
+  -- Goal: (GL2.restrictedProduct (diagonal ...)).1 w = (mulSingle v ...).1 w
+  -- Both are units in GL₂(K_w).
+  -- `(GL2.restrictedProduct x).1 w` and `GL2.toAdicCompletion w x` agree at val.
+  -- `(mulSingle ...).1 w` and `GL2.toAdicCompletion w (rp.symm ...)` agree.
+  ext1; ext i j
+  -- Entry-level comparison.
+  -- `toAdicCompletion_restrictedProduct_symm_apply` gives us the RHS at the unit level.
+  -- The LHS is definitionally `GL2.toAdicCompletion w (diagonal ...)` at the unit level.
+  rw [← FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_apply w
+    (RestrictedProduct.mulSingle _ v
+      (Local.GL2.diag (localUniformiserInt v) (localUniformiserInt_ne_zero v)))]
+  -- Now: (GL2.restrictedProduct (diagonal ...)) w = GL2.toAdicCompletion w (rp.symm (mulSingle ...))
+  -- The LHS equals GL2.toAdicCompletion w (diagonal ...) definitionally (at val level).
+  -- So this reduces to `h w`.
+  -- But first, convert the LHS using definitional equality:
+  have : (FiniteAdeleRing.GL2.restrictedProduct (F := F)
+      (Matrix.GeneralLinearGroup.diagonal
+        ![FiniteAdeleRing.localUniformiserUnit F v, 1])) w =
+    FiniteAdeleRing.GL2.toAdicCompletion w
+      (Matrix.GeneralLinearGroup.diagonal
+        ![FiniteAdeleRing.localUniformiserUnit F v, 1]) := by
+    ext1; ext i j; rfl
+  simp only [this, h w]
 
 /-- The double coset space `U₁(S) diag(ϖ_v, 1) U₁(S)` as a set of left cosets, for T. -/
 noncomputable def T_U1diagU1 (v : HeightOneSpectrum (𝓞 F)) :
@@ -829,9 +908,280 @@ noncomputable def T_U1diagU1 (v : HeightOneSpectrum (𝓞 F)) :
 -- - InjOn: distinct T_cosets_global elements give distinct cosets (using the local InjOn).
 -- - SurjOn: every coset in the double coset space is represented (using the local SurjOn).
 -- The key fact is that for `v ∉ S`, `U1(S)` at place `v` is `U0(v) = GL₂(𝒪_v)`.
+set_option maxHeartbeats 3200000 in
 theorem bijOn_T_cosets_U1diagU1 (v : HeightOneSpectrum (𝓞 F)) (hv : v ∉ S) :
     (T_cosets_image r v).BijOn QuotientGroup.mk (T_U1diagU1 r S v) := by
-  sorry
+  set α := localUniformiserInt v with hα_def
+  set hαne := localUniformiserInt_ne_zero v
+  refine ⟨?mapsTo, ?injOn, ?surjOn⟩
+  case mapsTo =>
+    -- Each T_cosets_global element can be written as `u * diag` for `u ∈ U1(S)`.
+    rintro _ ⟨a, _, rfl⟩
+    cases a with
+    | some t =>
+      -- T_cosets_global v (some t) = unipotent_mul_diag r α hαne t
+      -- Define the v-supported global unipotent element.
+      set u_glob : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+        Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v
+              (Matrix.GeneralLinearGroup.GL2.unipotent
+                ((Quotient.out t : adicCompletionIntegers F v) :
+                  adicCompletion F v)))) with hu_glob_def
+      have hu_glob_mem : u_glob ∈ U1 r S := by
+        refine Subgroup.mem_map.mpr ⟨_, ?_, rfl⟩
+        refine ⟨fun w => ?_, fun w hwS => ?_⟩
+        · by_cases hwv : w = v
+          · subst hwv
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w _]
+            exact (Local.GL2.unipotent_mem_U1 (v := w) (Quotient.out t)).1
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+            exact (GL2.localFullLevel w).one_mem
+        · by_cases hwv : w = v
+          · subst hwv; exact absurd hwS hv
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+            exact (GL2.localTameLevel w).one_mem
+      have h_eq : T_cosets_global r v (some t) = u_glob * diag r α hαne := by
+        rw [hu_glob_def]
+        show unipotent_mul_diag r α hαne t = _
+        unfold unipotent_mul_diag diag
+        rw [← map_mul, ← map_mul, ← RestrictedProduct.mulSingle_mul]
+        rfl
+      refine ⟨u_glob * diag r α hαne, Set.mul_mem_mul hu_glob_mem rfl, ?_⟩
+      rw [← h_eq]
+    | none =>
+      -- T_cosets_global v none = diag'_global r v.
+      -- From the local proof: mk(diag') = mk(W * diag) in GL₂(K_v)/U0(v).
+      -- Define the swap matrix W at v, identity elsewhere.
+      set W_loc : GL (Fin 2) (adicCompletion F v) :=
+        letI : Invertible !![0, 1; 1, (0 : adicCompletion F v)].det :=
+        { invOf := -1,
+          invOf_mul_self := by simp [Matrix.det_fin_two_of],
+          mul_invOf_self := by simp [Matrix.det_fin_two_of] }
+        Matrix.unitOfDetInvertible
+          !![0, 1; 1, (0 : adicCompletion F v)]
+      set W_glob : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+        Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v W_loc))
+      -- W_glob ∈ U1 r S (W ∈ U0(v) = localFullLevel at v, identity elsewhere)
+      have hW_mem : W_glob ∈ U1 r S := by
+        refine Subgroup.mem_map.mpr ⟨_, ?_, rfl⟩
+        refine ⟨fun w => ?_, fun w hwS => ?_⟩
+        · by_cases hwv : w = v
+          · subst hwv
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
+            apply GL2.mem_localFullLevel_iff_v_le_one_and_v_det_eq_one.mpr
+            refine ⟨fun i j => ?_, ?_⟩
+            · fin_cases i <;> fin_cases j <;>
+                simp [W_loc, Matrix.unitOfDetInvertible]
+            · simp [W_loc, Matrix.unitOfDetInvertible,
+                Matrix.det_fin_two_of]
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            exact (GL2.localFullLevel w).one_mem
+        · by_cases hwv : w = v
+          · exact absurd (hwv ▸ hwS) hv
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            exact (GL2.localTameLevel w).one_mem
+      -- diag'_global = W_glob * diag (modulo U1(S) on the right).
+      -- Show: mk(diag'_global) = mk(W_glob * diag).
+      -- I.e., (W_glob * diag)⁻¹ * diag'_global ∈ U1(S).
+      -- Locally at v: (W * diag)⁻¹ * diag' = W ∈ U0(v).
+      -- The global ratio = mapEquiv r.symm (rp.symm (mulSingle v W)).
+      -- This is W_glob, which we showed is in U1(S).
+      have h_eq_ratio :
+          (W_glob * diag r α hαne)⁻¹ * T_cosets_global r v none =
+            W_glob := by
+        -- All three terms (W_glob, diag, diag'_global) are mulSingle-based.
+        -- The product reduces to mulSingle v ((W * diag)⁻¹ * diag')
+        -- which locally equals W.
+        simp only [T_cosets_global, diag'_global, diag,
+          mul_inv_rev]
+        -- Reduce: (diag)⁻¹ * W_glob⁻¹ * diag'_global = W_glob
+        -- All are mapEquiv r.symm of rp.symm of mulSingle v ...
+        -- Factor out mapEquiv r.symm:
+        show (Units.mapEquiv r.symm.toMulEquiv _)⁻¹ *
+          (Units.mapEquiv r.symm.toMulEquiv _)⁻¹ *
+          (Units.mapEquiv r.symm.toMulEquiv _) =
+          Units.mapEquiv r.symm.toMulEquiv _
+        simp only [← map_inv, ← map_mul]
+        congr 1
+        -- Factor out rp.symm:
+        change (FiniteAdeleRing.GL2.restrictedProduct.symm _)⁻¹ *
+          (FiniteAdeleRing.GL2.restrictedProduct.symm _)⁻¹ *
+          (FiniteAdeleRing.GL2.restrictedProduct.symm _) =
+          FiniteAdeleRing.GL2.restrictedProduct.symm _
+        simp only [← map_inv, ← map_mul]
+        congr 1
+        -- Factor out mulSingle:
+        rw [← RestrictedProduct.mulSingle_inv,
+          ← RestrictedProduct.mulSingle_inv,
+          ← RestrictedProduct.mulSingle_mul,
+          ← RestrictedProduct.mulSingle_mul]
+        congr 1
+        -- Local: (diag α)⁻¹ * W⁻¹ * diag' = W
+        ext i j
+        fin_cases i <;> fin_cases j <;>
+          simp [hα_def, W_loc, Local.GL2.diag, Local.diag',
+            Matrix.unitOfDetInvertible, Matrix.inv_def,
+            Matrix.GeneralLinearGroup.diagonal,
+            Matrix.det_fin_two_of, Matrix.adjugate_fin_two_of,
+            Matrix.mul_apply, Fin.sum_univ_two,
+            mul_inv_cancel₀ ((Subtype.coe_ne_coe).mpr hαne),
+            inv_mul_cancel₀ ((Subtype.coe_ne_coe).mpr hαne)]
+      refine ⟨W_glob * diag r α hαne,
+        Set.mul_mem_mul hW_mem rfl, ?_⟩
+      apply QuotientGroup.eq.mpr
+      rw [h_eq_ratio]
+      exact hW_mem
+  case injOn =>
+    -- If mk(T_cosets_global a) = mk(T_cosets_global b), then a = b.
+    -- Strategy: extract the global ratio, project to place v to get the local ratio in U0(v),
+    -- then use local injOn_T_cosets.
+    -- The proof follows the same pattern as the InjOn part of
+    -- `bijOn_unipotent_mul_diagU1_U1diagU1` (lines ~257-322), but for T_cosets_global
+    -- which has both `some t` and `none` cases.
+    -- Key steps:
+    -- 1. The global ratio (T_cosets_global a)⁻¹ * (T_cosets_global b) ∈ U1(S).
+    -- 2. Extract w_gl ∈ TameLevel S with mapEquiv r.symm w_gl = ratio.
+    -- 3. Since T_cosets_global is mulSingle-based, the ratio factors as
+    --    mapEquiv r.symm (rp.symm (mulSingle v (local_ratio))).
+    -- 4. By injectivity: w_gl = rp.symm (mulSingle v (local_ratio)).
+    -- 5. toAdicCompletion v w_gl = local_ratio ∈ localFullLevel v (from hw_mem.1 v).
+    -- 6. So Local.T_cosets a = Local.T_cosets b, and local injOn gives a = b.
+    rintro _ ⟨a, _, rfl⟩ _ ⟨b, _, rfl⟩ h
+    -- Step 1: extract global ratio membership.
+    have hratio : (T_cosets_global r v a)⁻¹ * (T_cosets_global r v b) ∈ U1 r S :=
+      QuotientGroup.eq.mp h
+    obtain ⟨w_gl, hw_mem, hw_eq⟩ := Subgroup.mem_map.mp hratio
+    -- Define local elements for a and b.
+    -- For each option case, T_cosets_global is mapEquiv r.symm (rp.symm (mulSingle v loc)).
+    -- Define the local ratio.
+    set loc_a : GL (Fin 2) (adicCompletion F v) :=
+      match a with
+      | none => Local.diag' α hαne
+      | some t => Local.GL2.unipotent_mul_diag α hαne (Quotient.out t) with hloc_a_def
+    set loc_b : GL (Fin 2) (adicCompletion F v) :=
+      match b with
+      | none => Local.diag' α hαne
+      | some t => Local.GL2.unipotent_mul_diag α hαne (Quotient.out t) with hloc_b_def
+    -- T_cosets_global a = mapEquiv r.symm (rp.symm (mulSingle v loc_a))
+    have ha_eq : T_cosets_global r v a =
+        Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v loc_a)) := by
+      cases a <;> rfl
+    have hb_eq : T_cosets_global r v b =
+        Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v loc_b)) := by
+      cases b <;> rfl
+    -- Build the global witness w' from the local ratio.
+    set g_loc := loc_a⁻¹ * loc_b with hg_loc_def
+    set w' : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) :=
+      FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ v g_loc) with hw'_def
+    -- The image of w' under mapEquiv r.symm is the ratio.
+    have h_image : Units.mapEquiv r.symm.toMulEquiv w' =
+        (T_cosets_global r v a)⁻¹ * (T_cosets_global r v b) := by
+      rw [ha_eq, hb_eq]
+      rw [← map_inv, ← map_mul, ← map_inv, ← map_mul, ← RestrictedProduct.mulSingle_inv,
+        ← RestrictedProduct.mulSingle_mul]
+    -- Since mapEquiv is injective, w' = w_gl (the witness from U1).
+    have hw'_eq : w' = w_gl := by
+      apply (Units.mapEquiv r.symm.toMulEquiv).injective
+      rw [h_image]; exact hw_eq.symm
+    have hw'_mem : w' ∈ GL2.TameLevel S := hw'_eq ▸ hw_mem
+    -- Project to place v: g_loc ∈ localFullLevel v.
+    have hg_loc_mem : g_loc ∈ GL2.localFullLevel v := by
+      have := hw'_mem.1 v
+      rwa [hw'_def,
+        FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same v g_loc] at this
+    -- Now use local injOn: the local ratio being in U0 = localFullLevel means
+    -- Local.T_cosets a = Local.T_cosets b.
+    have hloc_a_eq : Local.T_cosets v α hαne a = QuotientGroup.mk loc_a := by
+      cases a <;> rfl
+    have hloc_b_eq : Local.T_cosets v α hαne b = QuotientGroup.mk loc_b := by
+      cases b <;> rfl
+    have hlocal : Local.T_cosets v α hαne a = Local.T_cosets v α hαne b := by
+      rw [hloc_a_eq, hloc_b_eq]
+      exact QuotientGroup.eq.mpr hg_loc_mem
+    exact congrArg (T_cosets_global r v)
+      ((Local.bijOn_T_cosets_U0diagU0 α hαne (localUniformiserInt_irreducible v)).injOn
+        (Set.mem_univ a) (Set.mem_univ b) hlocal)
+  case surjOn =>
+    -- Given u ∈ U1(S), find a such that mk(T_cosets_global a) = mk(u * diag).
+    rintro _ ⟨_, ⟨u, hu, _, rfl, rfl⟩, rfl⟩
+    obtain ⟨w_gl, hw_mem, hw_eq⟩ := Subgroup.mem_map.mp hu
+    set g_loc := FiniteAdeleRing.GL2.toAdicCompletion v w_gl with hg_loc_def
+    have hg_loc_U0 : g_loc ∈ GL2.localFullLevel v := hw_mem.1 v
+    have hlocal_target :
+        QuotientGroup.mk (g_loc * Local.GL2.diag α hαne) ∈ Local.U0diagU0 v α hαne :=
+      ⟨_, Set.mul_mem_mul hg_loc_U0 rfl, rfl⟩
+    obtain ⟨a, _, ha⟩ :=
+      (Local.bijOn_T_cosets_U0diagU0 α hαne (localUniformiserInt_irreducible v)).surjOn
+        hlocal_target
+    -- From `ha`: Local.T_cosets v α hαne a = mk(g_loc * diag)
+    -- The local ratio (T_cosets_local a)⁻¹ * (g_loc * diag) ∈ U0(v).
+    -- Globalize: show (T_cosets_global a)⁻¹ * (r.symm w_gl * diag) ∈ U1(S).
+    refine ⟨T_cosets_global r v a, ⟨a, trivial, rfl⟩, ?_⟩
+    apply QuotientGroup.eq.mpr
+    rw [← hw_eq]
+    -- Need: (T_cosets_global r v a)⁻¹ * (Units.map r.symm.toMonoidHom w_gl * diag r α hαne) ∈ U1 r S
+    -- The local ratio from ha: (loc_a)⁻¹ * (g_loc * diag) ∈ U0(v).
+    set loc_a : GL (Fin 2) (adicCompletion F v) :=
+      match a with
+      | none => Local.diag' α hαne
+      | some t => Local.GL2.unipotent_mul_diag α hαne (Quotient.out t) with hloc_a_def
+    have ha_eq : T_cosets_global r v a =
+        Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v loc_a)) := by
+      cases a <;> rfl
+    have hlocal_ratio : loc_a⁻¹ * (g_loc * Local.GL2.diag α hαne) ∈
+        GL2.localFullLevel v := by
+      have h_loc_eq : Local.T_cosets v α hαne a = QuotientGroup.mk loc_a := by
+        cases a <;> rfl
+      rw [h_loc_eq] at ha
+      exact QuotientGroup.eq.mp ha
+    -- Build the global witness W.
+    set W : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) :=
+      (FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ v loc_a))⁻¹ *
+      (w_gl * FiniteAdeleRing.GL2.restrictedProduct.symm
+        (RestrictedProduct.mulSingle _ v (Local.GL2.diag α hαne))) with hW_def
+    refine Subgroup.mem_map.mpr ⟨W, ?_, ?_⟩
+    · -- Show W ∈ GL2.TameLevel S.
+      refine ⟨fun w_place => ?_, fun w_place hwS => ?_⟩
+      · by_cases hwv : w_place = v
+        · subst hwv
+          rw [hW_def]
+          simp only [map_mul, map_inv]
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w_place _,
+            FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w_place _]
+          exact hlocal_ratio
+        · rw [hW_def]
+          simp only [map_mul, map_inv]
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _,
+            FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+          simp only [inv_one, one_mul, mul_one]
+          exact hw_mem.1 w_place
+      · by_cases hwv : w_place = v
+        · subst hwv; exact absurd hwS hv
+        · rw [hW_def]
+          simp only [map_mul, map_inv]
+          rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _,
+            FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+          simp only [inv_one, one_mul, mul_one]
+          exact hw_mem.2 w_place hwS
+    · -- Show Units.map r.symm.toMonoidHom W = ratio.
+      change Units.mapEquiv r.symm.toMulEquiv W =
+        (T_cosets_global r v a)⁻¹ *
+          (Units.mapEquiv r.symm.toMulEquiv w_gl * diag r α hαne)
+      rw [ha_eq]
+      unfold diag
+      rw [hW_def]
+      simp only [map_mul, map_inv]
 
 end TCosets
 
