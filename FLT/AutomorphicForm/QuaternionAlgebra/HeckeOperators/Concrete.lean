@@ -557,7 +557,14 @@ theorem bijOn_T_cosets_U1diagU1
         rwa [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same v _] at this
       -- g_loc(0,0) = α⁻¹, not in O_v
       have hentry : (g_loc : GL (Fin 2) _).val 0 0 =
-          (α : adicCompletion F v)⁻¹ := by sorry
+          (α : adicCompletion F v)⁻¹ := by
+        dsimp only [g_loc, Local.GL2.unipotent_mul_diag, Local.diag']
+        push_cast [Local.GL2.diag_def, Local.diag'_def,
+          Matrix.GeneralLinearGroup.GL2.unipotent_def,
+          Matrix.inv_def, Matrix.det_fin_two_of,
+          Matrix.adjugate_fin_two_of]
+        simp [Matrix.mul_apply, Fin.sum_univ_two,
+          Matrix.GeneralLinearGroup.diagonal]
       have h00 := GL2.v_le_one_of_mem_localFullLevel _ hg_loc_mem 0 0
       rw [hentry] at h00; rw [map_inv₀] at h00
       exact hα_irr.1 (Valued.isUnit_valuationSubring_iff.mpr
@@ -593,7 +600,7 @@ theorem bijOn_T_cosets_U1diagU1
       -- The (1,1) entry of g_loc is α⁻¹, not in O_v since ¬IsUnit α.
       have hentry : (g_loc : GL (Fin 2) _).val 1 1 =
           (α : adicCompletion F v)⁻¹ := by
-        -- Matrix entry computation: (diag')⁻¹ * unipotent_mul_diag at (1,1) = α⁻¹
+        -- (diag')⁻¹ * unipotent_mul_diag at (1,1) = α⁻¹
         sorry
       have h11 := GL2.v_le_one_of_mem_localFullLevel _ hg_loc_mem 1 1
       rw [hentry] at h11; rw [map_inv₀] at h11
