@@ -470,11 +470,17 @@ theorem bijOn_T_cosets_U1diagU1
       -- where W = swap matrix ∈ U1
       sorry
   · -- InjOn: distinct T_cosets_image elements give distinct cosets.
-    -- For unipotent_mul_diag/unipotent_mul_diag: same as existing InjOn
-    -- For diag' vs unipotent_mul_diag: the ratio's v-projection has α⁻¹ entry
-    -- For diag' vs diag': trivial (same element)
-    -- Follows from local injOn transported through restricted product.
-    sorry
+    rintro _ (⟨i, _, rfl⟩ | rfl) _ (⟨j, _, rfl⟩ | rfl) h
+    · -- unipotent/unipotent: mk(unipotent_mul_diag i) = mk(unipotent_mul_diag j)
+      -- means the ratio is in U1. Project at v to get local ratio in U0.
+      -- Local injOn gives i = j.
+      sorry
+    · -- unipotent vs diag': the ratio has α⁻¹ in some entry → not in U0
+      sorry
+    · -- diag' vs unipotent: symmetric
+      sorry
+    · -- diag' vs diag': same element
+      rfl
   · -- SurjOn: every coset in U1diagU1 is represented.
     -- Uses isProductAt_transported + local surjOn (T_cosets decomposition).
     sorry
