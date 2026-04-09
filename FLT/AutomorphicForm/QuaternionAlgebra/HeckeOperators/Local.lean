@@ -321,7 +321,10 @@ noncomputable def U0 (v : HeightOneSpectrum (𝓞 F)) :
     Subgroup (GL (Fin 2) (adicCompletion F v)) :=
   GL2.localFullLevel v
 
-/-- The anti-diagonal matrix element `!![1, 0; 0, α]`. -/
+/-- The secondary diagonal matrix element `!![1, 0; 0, α]`. Dual to `GL2.diag` which is
+`!![α, 0; 0, 1]`. The name `diag'` mirrors `diag` with the unit placed on the other
+diagonal entry. This represents the "extra" coset in the T_v double coset decomposition
+at good primes (beyond the q_v unipotent_mul_diag cosets). -/
 noncomputable def diag' (α : v.adicCompletionIntegers F) (hα : α ≠ 0) :
     (GL (Fin 2) (adicCompletion F v)) :=
   Matrix.GeneralLinearGroup.diagonal (![1, ⟨(α : v.adicCompletion F),
