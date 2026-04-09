@@ -820,31 +820,19 @@ noncomputable instance instCommRing :
     · -- v = w: T_v = T_w, so the product commutes with itself trivially.
       subst hvw
       rfl
-    · -- v ≠ w: disjoint support argument via `AbstractHeckeOperator.comm`.
-      -- TODO: Blocked on missing infrastructure. `AbstractHeckeOperator.comm` requires a
-      -- `Set.BijOn QuotientGroup.mk s (QuotientGroup.mk '' (U1 * {diag(ϖ_v,1)}))` witness
-      -- exhibiting a concrete set `s` of v-supported left-coset representatives for the
-      -- double coset `U1 · diag(ϖ_v,1) · U1`. The only such witness currently in the
-      -- codebase is `bijOn_unipotent_mul_diagU1_U1diagU1`, which is proven only for
-      -- `v ∈ S` (where U1 at v is the Iwahori-style subgroup and the double coset has
-      -- |O_v / α| single cosets). For `v ∉ S`, U1 at v is the full maximal compact
-      -- `GL₂(𝒪_v)` and the classical `T_v` double coset decomposes into q+1 single
-      -- cosets (`diag(ϖ_v,1)` and `(1 t; 0 ϖ_v)` for `t` in 𝒪_v/ϖ_v), but no analogue of
-      -- `bijOn_unipotent_mul_diagU1_U1diagU1` has been built for this case. Closing this
-      -- sorry requires adding (a) a local lemma in Local.lean giving a BijOn for the
-      -- T_v double coset at a good prime, and (b) the global lift mirroring
-      -- `bijOn_unipotent_mul_diagU1_U1diagU1` in this file.
+    · -- v ≠ w: use AbstractHeckeOperator.comm with T_cosets_image for both T_v and T_w.
+      -- Needs bijOn_T_cosets_U1diagU1 (available with sorry) and
+      -- T_cosets_image_commute_of_ne (proved).
       sorry
-  · -- (T_v, U_{w,β}): good prime T_v commutes with bad prime U_{w,β}. Since v ∉ S and
-    -- w ∈ S, we have v ≠ w, so the representatives are supported at disjoint places.
-    -- TODO: Blocked on the same missing T_v coset-representative infrastructure as the
-    -- (T_v, T_w) case above. The U_{w,β} side has
-    -- `bijOn_unipotent_mul_diagU1_U1diagU1 r S β hβ hw` available, but the T_v side
-    -- still needs a BijOn witness for `U1 · diag(ϖ_v,1) · U1` before
-    -- `AbstractHeckeOperator.comm` can be applied.
+  · -- (T_v, U_{w,β}): good prime T_v commutes with bad prime U_{w,β}.
+    -- Since v ∉ S and w ∈ S, we have v ≠ w.
+    -- Use AbstractHeckeOperator.comm with:
+    -- s₁ = T_cosets_image for T_v (good prime)
+    -- s₂ = unipotent_mul_diag_image for U_{w,β} (bad prime)
+    -- The commutativity follows from T_cosets_image_commute_of_ne.
     sorry
-  · -- (U_{v,α}, T_w): symmetric to the previous case.
-    -- TODO: Blocked on the same missing T_w coset-representative infrastructure.
+  · -- (U_{v,α}, T_w): symmetric to (T_v, U_{w,β}).
+    -- Use T_cosets_image for T_w and unipotent_mul_diag_image for U_{v,α}.
     sorry
   · -- (U_{v,α}, U_{w,β}): bad prime operators.
     by_cases hvw : v = w
