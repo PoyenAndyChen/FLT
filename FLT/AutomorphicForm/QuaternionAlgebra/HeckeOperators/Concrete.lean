@@ -471,11 +471,11 @@ theorem bijOn_T_cosets_U1diagU1
     · -- diag': mk(diag') ∈ U1diagU1.
       -- By local mapsTo_T_cosets, ∃ g ∈ U0 * {local_diag}, mk(g) = mk(local_diag').
       -- Extract this witness, lift to global, and verify U1diagU1 membership.
-      obtain ⟨g_loc, hg_loc_mem, hg_loc_eq⟩ :=
-        Local.mapsTo_T_cosets α hα (by trivial : none ∈ ⊤)
-      -- g_loc is in U0diagU0, so there exists u ∈ U0, g_local ∈ U0 * {diag}
-      -- and mk(g_local) = mk(diag') locally.
-      -- Lift g_local to the global setting and verify U1diagU1 membership.
+      -- Global MapsTo for none: mk(diag') ∈ U1diagU1.
+      -- Strategy: construct a global unipotent element u such that
+      -- mk(u * diag) = mk(diag') in the quotient.
+      -- Concretely, diag' is in the same double coset as diag via the swap permutation.
+      -- Localized sorry for now — needs global swap construction + membership verification.
       sorry
   · -- InjOn: distinct T_cosets_image elements give distinct cosets.
     rintro _ (⟨i, _, rfl⟩ | rfl) _ (⟨j, _, rfl⟩ | rfl) h
@@ -557,7 +557,14 @@ theorem bijOn_T_cosets_U1diagU1
         rwa [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same v _] at this
       -- g_loc(0,0) = α⁻¹, not in O_v
       have hentry : (g_loc : GL (Fin 2) _).val 0 0 =
-          (α : adicCompletion F v)⁻¹ := by sorry
+          (α : adicCompletion F v)⁻¹ := by
+        -- g_loc = (unipotent_mul_diag)⁻¹ * diag'. Entry (0,0) = α⁻¹.
+        change (((Local.GL2.unipotent_mul_diag α hα (Quotient.out i))⁻¹ *
+          Local.diag' α hα : GL _ _).val) 0 0 = _
+        push_cast [Local.GL2.unipotent_mul_diag, Local.GL2.diag_def, Local.diag'_def,
+          Matrix.GeneralLinearGroup.GL2.unipotent_def,
+          Matrix.inv_def, Matrix.det_fin_two_of, Matrix.adjugate_fin_two_of]
+        simp [Matrix.mul_apply, Fin.sum_univ_two]
       have h00 := GL2.v_le_one_of_mem_localFullLevel _ hg_loc_mem 0 0
       rw [hentry] at h00; rw [map_inv₀] at h00
       exact hα_irr.1 (Valued.isUnit_valuationSubring_iff.mpr
@@ -593,8 +600,12 @@ theorem bijOn_T_cosets_U1diagU1
       -- The (1,1) entry of g_loc is α⁻¹, not in O_v since ¬IsUnit α.
       have hentry : (g_loc : GL (Fin 2) _).val 1 1 =
           (α : adicCompletion F v)⁻¹ := by
-        -- Matrix entry computation: (diag')⁻¹ * unipotent_mul_diag at (1,1) = α⁻¹
-        sorry
+        change (((Local.diag' α hα)⁻¹ *
+          Local.GL2.unipotent_mul_diag α hα (Quotient.out j) : GL _ _).val) 1 1 = _
+        push_cast [Local.GL2.unipotent_mul_diag, Local.GL2.diag_def, Local.diag'_def,
+          Matrix.GeneralLinearGroup.GL2.unipotent_def,
+          Matrix.inv_def, Matrix.det_fin_two_of, Matrix.adjugate_fin_two_of]
+        simp [Matrix.mul_apply, Fin.sum_univ_two]
       have h11 := GL2.v_le_one_of_mem_localFullLevel _ hg_loc_mem 1 1
       rw [hentry] at h11; rw [map_inv₀] at h11
       exact hα_irr.1 (Valued.isUnit_valuationSubring_iff.mpr
