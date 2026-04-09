@@ -629,14 +629,30 @@ lemma surjOn_T_cosets_U0diagU0
         push_cast [hx₁]
         simp only [Matrix.of_apply, Matrix.cons_val', Matrix.cons_val_zero, Matrix.cons_val_one,
           Matrix.cons_val_fin_one, zero_mul, one_mul, mul_one, mul_zero, add_zero, zero_add]
-        -- The 4 entries after simp are:
-        -- (0,0): a*α, (0,1): b, (1,0): c, (1,1): d*α⁻¹ = d'
-        -- All in O_v since a,b,c,d' ∈ O_v, α ∈ O_v, and d = α*d'.
-        -- TODO: push through the Valued.v computation for each entry.
-        sorry
-      · -- det has v-value 1: det((diag')⁻¹ * x * diag) = det(x) since
-        -- det(diag') = α, det(diag) = α, so det(diag')⁻¹ * det(diag) = 1.
-        -- Hence det(product) = det(x), and v(det(x)) = 1 since x ∈ U0.
+        fin_cases i <;> fin_cases j <;>
+          simp only [Fin.zero_eta, Fin.isValue, Matrix.of_apply, Matrix.cons_val',
+            Matrix.cons_val_zero, Matrix.cons_val_fin_one,
+            Fin.mk_one, Matrix.cons_val_one,
+            mul_zero, mul_one, zero_mul, one_mul, add_zero, zero_add]
+        · -- (0,0): a * α ∈ O_v
+          exact_mod_cast (a * α).2
+        · -- (0,1): b ∈ O_v
+          exact GL2.v_le_one_of_mem_localFullLevel _ hx 0 1
+        · -- (1,0): (α⁻¹ * c * α) = c ∈ O_v
+          rw [show (↑α : adicCompletion F v)⁻¹ * (↑c * ↑α) = ↑c from by
+            field_simp]
+          exact GL2.v_le_one_of_mem_localFullLevel _ hx 1 0
+        · -- (1,1): α⁻¹ * (c * 0 + d * 1) = α⁻¹ * d = d' since d = α*d'
+          -- The entry is α⁻¹ * d = d' since d' * α = d (from hd')
+          have hdd : (x.val 1 1 : adicCompletion F v) = (d' : adicCompletion F v) * (α : adicCompletion F v) := by
+            have := congrArg (Subtype.val (p := fun x => x ∈ adicCompletionIntegers F v)) hd'
+            push_cast at this; exact this.symm
+          have hα_ne' := (Subtype.coe_ne_coe).mpr hα
+          rw [show (d : adicCompletion F v) = x.val 1 1 from rfl, hdd]
+          rw [show (↑α : adicCompletion F v)⁻¹ * (↑d' * ↑α) = ↑d' from by
+            rw [mul_comm (↑d' : adicCompletion F v) ↑α, ← mul_assoc, inv_mul_cancel₀ hα_ne', one_mul]]
+          exact d'.2
+      · -- det = det(x): det(diag'⁻¹) * det(x) * det(diag) = α⁻¹ * det(x) * α = det(x).
         sorry
 
 variable (v) in
