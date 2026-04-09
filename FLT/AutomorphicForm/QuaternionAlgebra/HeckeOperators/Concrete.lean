@@ -468,16 +468,68 @@ theorem bijOn_T_cosets_U1diagU1
         rfl
       refine ⟨u_glob * diag r α hα, Set.mul_mem_mul hu_glob_mem rfl, ?_⟩
       rw [← h_eq]
-    · -- diag': mk(diag') ∈ U1diagU1.
-      -- The local mapsTo gives mk(local diag') ∈ mk''(U0 * {local diag}).
-      -- This means ∃ u ∈ U0 such that mk(u * local_diag) = mk(local_diag'),
-      -- i.e. (u * local_diag)⁻¹ * local_diag' ∈ U0.
-      -- We lift u to W_glob ∈ U1 and show mk(W_glob * diag) = mk(diag').
-      --
-      -- The local proof uses W = !![0,1;1,0] with (W * diag)⁻¹ * diag' = W ∈ U0.
-      -- Lift W to W_glob via mulSingle, then W_glob ∈ U1 since W ∈ localFullLevel at v
-      -- and 1 ∈ localFullLevel at all other places.
-      sorry
+    · -- diag': mk(diag') ∈ U1diagU1. Lift the local swap W = !![0,1;1,0] to W_glob.
+      -- W ∈ localFullLevel at v. At w ≠ v, projection is 1. Since v ∉ S,
+      -- the TameLevel check at w ∈ S with w = v is vacuous.
+      -- Then mk(W_glob * diag) = mk(diag') via the local equality.
+      -- First, get the local swap witness from mapsTo_T_cosets.
+      have hlocal := Local.mapsTo_T_cosets α hα (show (none : Option _) ∈ ⊤ from trivial)
+      -- hlocal : Local.T_cosets v α hα none ∈ Local.U0diagU0 v α hα
+      -- i.e. mk(Local.diag') ∈ mk''(U0 * {Local.diag})
+      -- So ∃ g ∈ U0 * {diag}, mk g = mk (diag')
+      -- Unfold: ∃ u ∈ U0, g = u * diag, mk(u * diag) = mk(diag')
+      obtain ⟨g_loc, ⟨u_loc, hu_loc, _, rfl, rfl⟩, hg_eq⟩ := hlocal
+      -- u_loc ∈ U0 = localFullLevel v, and mk(u_loc * diag) = mk(diag') locally.
+      -- This means (u_loc * diag)⁻¹ * diag' ∈ U0.
+      have hlocal_ratio : (u_loc * Local.GL2.diag α hα)⁻¹ *
+          Local.diag' α hα ∈ Local.U0 v := QuotientGroup.eq.mp hg_eq
+      -- Lift u_loc to W_glob
+      set W_glob : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+        Units.mapEquiv r.symm.toMulEquiv
+          (FiniteAdeleRing.GL2.restrictedProduct.symm
+            (RestrictedProduct.mulSingle _ v u_loc)) with hW_glob_def
+      -- W_glob ∈ U1 r S
+      have hW_glob_mem : W_glob ∈ U1 r S := by
+        refine Subgroup.mem_map.mpr ⟨_, ?_, rfl⟩
+        refine ⟨fun w => ?_, fun w hwS => ?_⟩
+        · by_cases hwv : w = v
+          · subst hwv
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same w _]
+            exact hu_loc
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+            exact (GL2.localFullLevel w).one_mem
+        · by_cases hwv : w = v
+          · subst hwv; exact absurd hwS hv
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv _]
+            exact (GL2.localTameLevel w).one_mem
+      -- mk(diag') = mk(W_glob * diag) in quotient by U1
+      refine ⟨W_glob * diag r α hα, Set.mul_mem_mul hW_glob_mem rfl, ?_⟩
+      -- Need: (W_glob * diag)⁻¹ * diag' ∈ U1
+      apply (QuotientGroup.eq (s := U1 r S)).mpr
+      -- The ratio (W_glob * diag)⁻¹ * diag' = global lift of
+      -- ((u_loc * local_diag)⁻¹ * local_diag') at v, identity elsewhere.
+      -- This is in U1 since the local ratio is in U0 (from hlocal_ratio)
+      -- and at w ≠ v the ratio is 1.
+      refine Subgroup.mem_map.mpr ?_
+      set ratio_loc := (u_loc * Local.GL2.diag α hα)⁻¹ *
+        Local.diag' α hα
+      set W_ratio : GL (Fin 2) (FiniteAdeleRing (𝓞 F) F) :=
+        FiniteAdeleRing.GL2.restrictedProduct.symm
+          (RestrictedProduct.mulSingle _ v ratio_loc)
+      refine ⟨W_ratio, ?_, ?_⟩
+      · refine ⟨fun w => ?_, fun w hwS => ?_⟩
+        · by_cases hwv : w = v
+          · subst hwv
+            rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
+            exact hlocal_ratio
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            exact (GL2.localFullLevel w).one_mem
+        · by_cases hwv : w = v
+          · subst hwv; exact absurd hwS hv
+          · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
+            exact (GL2.localTameLevel w).one_mem
+      · -- Units.map r.symm W_ratio = (W_glob * diag)⁻¹ * diag'
+        sorry
   · -- InjOn: distinct T_cosets_image elements give distinct cosets.
     rintro _ (⟨i, _, rfl⟩ | rfl) _ (⟨j, _, rfl⟩ | rfl) h
     · -- unipotent/unipotent: adapted from existing InjOn (lines 273-338)
