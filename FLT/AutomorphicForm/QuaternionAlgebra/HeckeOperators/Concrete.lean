@@ -1182,8 +1182,11 @@ lemma T_eq_diag (v : HeightOneSpectrum (𝓞 F))
   unfold diag
   -- Apply Units.ext to reduce to value equality.
   ext : 1
-  -- Show the underlying (D ⊗ 𝔸) matrix values are equal.
-  -- Both are r.symm applied to something, so use r.symm injectivity.
+  -- Both sides map r.symm to a GL₂(𝔸_F) element.
+  -- LHS value: r.symm (diagonal ![ϖ_v, 1])
+  -- RHS value: r.symm (restrictedProduct.symm (mulSingle v (Local.diag α hα)))
+  -- These are equal because diagonal ![ϖ_v, 1] = restrictedProduct.symm (mulSingle v (Local.diag α hα))
+  -- when α coerces to the uniformizer at v.
   sorry
 
 set_option maxSynthPendingDepth 1 in
@@ -1248,18 +1251,68 @@ noncomputable instance instCommRing :
             (α : w.adicCompletion F) = w.adicCompletionUniformizer F :=
         ⟨HeckeOperator.uniformizerInt (F := F) w, HeckeOperator.uniformizerInt_ne_zero (F := F) w,
           HeckeOperator.uniformizerInt_irreducible (F := F) w, rfl⟩
-      -- After T_eq_diag rewrite, apply AbstractHeckeOperator.comm
-      sorry
+      -- Rewrite both T_v and T_w using T_eq_diag.
+      rw [show HeckeOperator.T r R v = _ from HeckeOperator.T_eq_diag (F := F) (D := D) (S := S) r R v hαv_ne hαv_eq,
+          show HeckeOperator.T r R w = _ from HeckeOperator.T_eq_diag (F := F) (D := D) (S := S) r R w hαw_ne hαw_eq]
+      apply AbstractHeckeOperator.comm (R := R)
+      refine ⟨T_cosets_image r αv hαv_ne,
+              T_cosets_image r αw hαw_ne,
+              bijOn_T_cosets_U1diagU1 r S αv hαv_ne hv hαv_irr,
+              bijOn_T_cosets_U1diagU1 r S αw hαw_ne hw hαw_irr, ?_⟩
+      -- Pairwise commutativity: elements at disjoint places commute.
+      rintro a ha b hb
+      exact T_cosets_image_commute_of_ne r hvw hαv_ne hαw_ne a ha b hb
   · -- (T_v, U_{w,β}): good prime T_v commutes with bad prime U_{w,β}.
     -- Since v ∉ S and w ∈ S, we have v ≠ w.
     -- Use AbstractHeckeOperator.comm with:
     -- s₁ = T_cosets_image for T_v (good prime)
     -- s₂ = unipotent_mul_diag_image for U_{w,β} (bad prime)
     -- The commutativity follows from T_cosets_image_commute_of_ne.
-    sorry
+    -- Get local uniformizer for T_v.
+    have ⟨αv, hαv_ne, hαv_irr, hαv_eq⟩ :
+        ∃ (α' : v.adicCompletionIntegers F) (hα' : α' ≠ 0),
+          Irreducible α' ∧
+          (α' : v.adicCompletion F) = v.adicCompletionUniformizer F :=
+      ⟨HeckeOperator.uniformizerInt (F := F) v, HeckeOperator.uniformizerInt_ne_zero (F := F) v,
+        HeckeOperator.uniformizerInt_irreducible (F := F) v, rfl⟩
+    -- v ≠ w since v ∉ S and w ∈ S
+    have hvw : v ≠ w := fun h => hv (h ▸ hw)
+    -- Rewrite T_v using T_eq_diag
+    rw [show HeckeOperator.T r R v = _ from HeckeOperator.T_eq_diag (F := F) (D := D) (S := S) r R v hαv_ne hαv_eq]
+    change _ = HeckeOperator.U r S R β hβ * _
+    unfold HeckeOperator.U
+    apply AbstractHeckeOperator.comm (R := R)
+    refine ⟨T_cosets_image r αv hαv_ne,
+            unipotent_mul_diag_image r β hβ,
+            bijOn_T_cosets_U1diagU1 r S αv hαv_ne hv hαv_irr,
+            bijOn_unipotent_mul_diagU1_U1diagU1 r S β hβ hw, ?_⟩
+    rintro a ha b ⟨j, _, rfl⟩
+    -- b = unipotent_mul_diag j is in unipotent_mul_diag_image ⊆ T_cosets_image
+    have hb : unipotent_mul_diag r β hβ j ∈ T_cosets_image r β hβ :=
+      Or.inl ⟨j, trivial, rfl⟩
+    exact T_cosets_image_commute_of_ne r hvw hαv_ne hβ a ha _ hb
   · -- (U_{v,α}, T_w): symmetric to (T_v, U_{w,β}).
-    -- Use T_cosets_image for T_w and unipotent_mul_diag_image for U_{v,α}.
-    sorry
+    -- Get local uniformizer for T_w.
+    have ⟨αw, hαw_ne, hαw_irr, hαw_eq⟩ :
+        ∃ (α' : w.adicCompletionIntegers F) (hα' : α' ≠ 0),
+          Irreducible α' ∧
+          (α' : w.adicCompletion F) = w.adicCompletionUniformizer F :=
+      ⟨HeckeOperator.uniformizerInt (F := F) w, HeckeOperator.uniformizerInt_ne_zero (F := F) w,
+        HeckeOperator.uniformizerInt_irreducible (F := F) w, rfl⟩
+    have hvw : v ≠ w := fun h => hw (h ▸ hv)
+    change HeckeOperator.U r S R α hα * _ = _
+    rw [show HeckeOperator.T r R w = _ from HeckeOperator.T_eq_diag (F := F) (D := D) (S := S) r R w hαw_ne hαw_eq]
+    unfold HeckeOperator.U
+    apply AbstractHeckeOperator.comm (R := R)
+    refine ⟨unipotent_mul_diag_image r α hα,
+            T_cosets_image r αw hαw_ne,
+            bijOn_unipotent_mul_diagU1_U1diagU1 r S α hα hv,
+            bijOn_T_cosets_U1diagU1 r S αw hαw_ne hw hαw_irr, ?_⟩
+    rintro a ⟨i, _, rfl⟩ b hb
+    -- a = unipotent_mul_diag i is in T_cosets_image
+    have ha : unipotent_mul_diag r α hα i ∈ T_cosets_image r α hα :=
+      Or.inl ⟨i, trivial, rfl⟩
+    exact (T_cosets_image_commute_of_ne r hvw.symm hαw_ne hα b hb _ ha).symm
   · -- (U_{v,α}, U_{w,β}): bad prime operators.
     by_cases hvw : v = w
     · -- v = w: use `HeckeOperator.U_comm`. Need to transport `hβ` across `hvw`.
