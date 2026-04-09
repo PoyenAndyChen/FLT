@@ -604,10 +604,19 @@ theorem bijOn_T_cosets_U1diagU1
     rintro _ ⟨_, ⟨u, hu, _, rfl, rfl⟩, rfl⟩
     -- u ∈ U1 r S. Pull back to w ∈ GL2.TameLevel S.
     obtain ⟨w, hw_mem, hw_eq⟩ := Subgroup.mem_map.mp hu
-    -- Use isProductAt_transported to decompose w at place v.
-    -- Get a v-local factor w_v and a complement w_rest.
-    -- Apply local surjOn_T_cosets at v to get the representative index.
-    -- Construct the global representative and verify the quotient equality.
+    -- The projection of w at v.
+    set g_loc : GL (Fin 2) (adicCompletion F v) :=
+      FiniteAdeleRing.GL2.toAdicCompletion v w with hg_loc_def
+    -- g_loc ∈ localFullLevel v (since w ∈ TameLevel S → entries in O_v at all places)
+    have hg_loc_full : g_loc ∈ GL2.localFullLevel v := hw_mem.1 v
+    -- Apply local surjOn: g_loc * diag ∈ U0diagU0, so ∃ index t s.t. T_cosets t = mk(g_loc * diag)
+    have hlocal_target :
+        QuotientGroup.mk (g_loc * Local.GL2.diag α hα) ∈
+          Local.U0diagU0 v α hα :=
+      ⟨_, Set.mul_mem_mul hg_loc_full rfl, rfl⟩
+    obtain ⟨idx, _, hidx⟩ :=
+      Local.surjOn_T_cosets α hα hα_irr hlocal_target
+    -- Case split on the index
     sorry
 
 omit [IsTotallyReal F] in
