@@ -529,9 +529,6 @@ theorem bijOn_T_cosets_U1diagU1
           · rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
             exact (GL2.localTameLevel w).one_mem
       · -- Units.map r.symm W_ratio = (W_glob * diag)⁻¹ * diag'
-        -- This follows from: ratio_loc = (u_loc * diag)⁻¹ * diag' at v,
-        -- and the maps (restrictedProduct.symm, mulSingle, Units.mapEquiv)
-        -- preserve multiplication and inversion.
         sorry
   · -- InjOn: distinct T_cosets_image elements give distinct cosets.
     rintro _ (⟨i, _, rfl⟩ | rfl) _ (⟨j, _, rfl⟩ | rfl) h
