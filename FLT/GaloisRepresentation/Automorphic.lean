@@ -92,7 +92,21 @@ instance {F E D : Type*}
     [Field F]
     [Field E] [Algebra F E]
     [Ring D] [Algebra F D] [IsQuaternionAlgebra F D] :
-    IsQuaternionAlgebra E (E ⊗[F] D) := sorry -- Ask Edison?
+    IsQuaternionAlgebra E (E ⊗[F] D) where
+  isSimpleRing := by
+    -- D ⊗[F] E is simple (D central simple, E simple as field).
+    -- Then E ⊗[F] D ≅ D ⊗[F] E via TensorProduct.comm, preserving simplicity.
+    haveI := @IsQuaternionAlgebra.isSimpleRing F _ D _ _ _
+    haveI := @IsQuaternionAlgebra.isCentral F _ D _ _ _
+    haveI : IsSimpleRing E := inferInstance
+    haveI : IsSimpleRing (D ⊗[F] E) := inferInstance
+    exact (IsSimpleRing.of_ringEquiv (Algebra.TensorProduct.comm F D E).toRingEquiv) inferInstance
+  isCentral := by
+    -- Z_E(E ⊗_F D) = E ⊗_F Z_F(D) = E ⊗_F F = E.
+    sorry
+  dim_four := by
+    -- rank E (E ⊗[F] D) = rank F D = 4.
+    sorry
 
 variable {p : ℕ} [Fact p.Prime] in
 noncomputable instance : NormedSpace ℚ_[p] (PadicAlgCl p) := spectralNorm.normedSpace ..
