@@ -600,8 +600,14 @@ theorem bijOn_T_cosets_U1diagU1
       -- The (1,1) entry of g_loc is α⁻¹, not in O_v since ¬IsUnit α.
       have hentry : (g_loc : GL (Fin 2) _).val 1 1 =
           (α : adicCompletion F v)⁻¹ := by
-        -- (diag')⁻¹ * unipotent_mul_diag at (1,1) = α⁻¹
-        sorry
+        -- g_loc = (diag')⁻¹ * unipotent_mul_diag. Entry (1,1) = α⁻¹ * 1 = α⁻¹.
+        show ((Local.diag' α hα)⁻¹ *
+          Local.GL2.unipotent_mul_diag α hα (Quotient.out j)).val 1 1 = _
+        push_cast [Local.diag'_def, Local.GL2.unipotent_mul_diag,
+          Matrix.GeneralLinearGroup.GL2.unipotent_def, Local.GL2.diag_def,
+          Matrix.inv_def, Matrix.det_fin_two_of, Matrix.adjugate_fin_two_of]
+        simp [Matrix.mul_apply, Fin.sum_univ_two,
+          Matrix.GeneralLinearGroup.diagonal]
       have h11 := GL2.v_le_one_of_mem_localFullLevel _ hg_loc_mem 1 1
       rw [hentry] at h11; rw [map_inv₀] at h11
       exact hα_irr.1 (Valued.isUnit_valuationSubring_iff.mpr
