@@ -429,7 +429,7 @@ For good primes (v ∉ S), this follows from the local T_cosets bijOn.
 The proof mirrors bijOn_unipotent_mul_diagU1_U1diagU1 but uses T_cosets_image
 (which includes the extra diag' coset) instead of unipotent_mul_diag_image. -/
 theorem bijOn_T_cosets_U1diagU1
-    (hα_irr : Irreducible α) :
+    (hv : v ∉ S) (hα_irr : Irreducible α) :
     (T_cosets_image r α hα).BijOn QuotientGroup.mk (U1diagU1 r S α hα) := by
   -- Globalizes Local.bijOn_T_cosets_U0diagU0 to the adelic setting.
   -- Structure mirrors bijOn_unipotent_mul_diagU1_U1diagU1 but with T_cosets_image
@@ -664,7 +664,7 @@ theorem bijOn_T_cosets_U1diagU1
             simp only [map_mul, map_inv]
             rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same,
               FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
-            sorry -- Need: hlocal_ratio gives TameLevel at v (but v ∉ S, so this is vacuous!)
+            exact absurd hwS hv
           · rw [hW_def]; simp only [map_mul, map_inv]
             rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv,
               FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
@@ -708,7 +708,7 @@ theorem bijOn_T_cosets_U1diagU1
           · subst hwv; rw [hW_def]; simp only [map_mul, map_inv]
             rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same,
               FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same]
-            sorry -- Vacuous: v ∈ S contradicts v ∉ S
+            exact absurd hwS hv
           · rw [hW_def]; simp only [map_mul, map_inv]
             rw [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv,
               FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_ne hwv]
