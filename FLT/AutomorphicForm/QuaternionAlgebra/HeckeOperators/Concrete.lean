@@ -554,14 +554,18 @@ theorem bijOn_T_cosets_U1diagU1
       have hg_loc_mem : g_loc ∈ GL2.localFullLevel v := by
         have := hw'_mem.1 v
         rwa [FiniteAdeleRing.GL2.toAdicCompletion_restrictedProduct_symm_mulSingle_same v _] at this
-      -- g_loc = (diag')⁻¹ * unipotent_mul_diag(j) ∈ localFullLevel v = U0.
-      -- But by local injOn_T_cosets, diag' and unipotent_mul_diag give distinct cosets
-      -- (none ≠ some j), so their ratio can't be in U0. Contradiction.
-      -- The (1,1) entry of g_loc is α⁻¹, which is not in O_v since ¬IsUnit α.
+      -- The (1,1) entry of g_loc is α⁻¹, not in O_v since ¬IsUnit α.
+      have hentry : (g_loc : GL (Fin 2) _).val 1 1 =
+          (α : adicCompletion F v)⁻¹ := by
+        -- Same computation as Local.lean injOn none/some hentry
+        sorry
       have h11 := GL2.v_le_one_of_mem_localFullLevel _ hg_loc_mem 1 1
-      -- h11 says Valued.v (g_loc 1 1) ≤ 1, but g_loc(1,1) = α⁻¹
-      -- and Valued.v(α⁻¹) > 1 since α is not a unit.
-      sorry
+      rw [hentry] at h11; rw [map_inv₀] at h11
+      exact hα_irr.1 (Valued.isUnit_valuationSubring_iff.mpr
+        (le_antisymm α.property
+          ((inv_le_one₀ (zero_lt_iff.mpr
+            (Valuation.ne_zero_iff _ |>.mpr
+              (by exact_mod_cast hα)))).mp h11)))
     · -- diag' vs diag': same element
       rfl
   · -- SurjOn: every coset in U1diagU1 is represented.
