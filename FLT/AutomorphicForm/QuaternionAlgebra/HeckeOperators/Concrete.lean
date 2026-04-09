@@ -172,6 +172,7 @@ noncomputable def uniformizerInt (v : HeightOneSpectrum (𝓞 F)) :
       rw [show (1 : WithZero (Multiplicative ℤ)) = ↑(Multiplicative.ofAdd (0 : ℤ)) from rfl]
       exact WithZero.coe_lt_coe.mpr (Multiplicative.ofAdd_lt.mpr (by omega)))⟩
 
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
 lemma uniformizerInt_ne_zero (v : HeightOneSpectrum (𝓞 F)) :
     uniformizerInt (F := F) v ≠ 0 := by
   intro h
@@ -180,6 +181,7 @@ lemma uniformizerInt_ne_zero (v : HeightOneSpectrum (𝓞 F)) :
   exact HeightOneSpectrum.adicCompletionUniformizer_ne_zero F v this
 
 set_option maxHeartbeats 800000 in
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
 -- The uniformizer is irreducible in the DVR O_v.
 lemma uniformizerInt_irreducible (v : HeightOneSpectrum (𝓞 F)) :
     Irreducible (uniformizerInt (F := F) v) :=
