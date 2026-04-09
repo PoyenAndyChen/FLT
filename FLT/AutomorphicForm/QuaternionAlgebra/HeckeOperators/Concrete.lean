@@ -469,10 +469,12 @@ theorem bijOn_T_cosets_U1diagU1
       refine ⟨u_glob * diag r α hα, Set.mul_mem_mul hu_glob_mem rfl, ?_⟩
       rw [← h_eq]
     · -- diag': mk(diag') ∈ U1diagU1 via mk(diag') = mk(W_glob * diag)
-      -- where W_glob is the global lift of the swap matrix at v.
-      -- The local proof (mapsTo_T_cosets none) constructs the local swap W,
-      -- shows (W * diag)⁻¹ * diag' = W ∈ U0, hence mk(W * diag) = mk(diag').
-      -- The global version lifts W to W_glob ∈ U1 via mulSingle.
+      -- Use the local mapsTo_T_cosets result: mk(diag') ∈ mk''(U0 * {diag}) locally.
+      -- Lift this to the global setting.
+      -- The local mapsTo_T_cosets gives a witness: some element in U0 * {diag} at v
+      -- maps to the same coset as diag'.
+      -- Globally, we construct W_glob (swap at v, identity elsewhere) ∈ U1,
+      -- then show mk(W_glob * diag) = mk(diag').
       sorry
   · -- InjOn: distinct T_cosets_image elements give distinct cosets.
     rintro _ (⟨i, _, rfl⟩ | rfl) _ (⟨j, _, rfl⟩ | rfl) h
