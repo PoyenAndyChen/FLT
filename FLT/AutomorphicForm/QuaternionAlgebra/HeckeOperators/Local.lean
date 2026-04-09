@@ -347,6 +347,20 @@ lemma diag'_def :
   ext i j; fin_cases i; all_goals fin_cases j
   all_goals simp
 
+set_option maxHeartbeats 400000 in
+lemma diag'_inv_val :
+    ((diag' α hα)⁻¹ : GL (Fin 2) (adicCompletion F v)).val
+    = !![1, 0; 0, (↑α : adicCompletion F v)⁻¹] := by
+  -- diag' is constructed as GeneralLinearGroup.diagonal, so its inverse is
+  -- GeneralLinearGroup.diagonal applied to the componentwise inverse.
+  -- We extract it via Units.val_inv_eq_inv_val and nonsing_inv computation.
+  rw [Matrix.coe_units_inv, diag'_def]
+  simp only [Matrix.inv_def, Matrix.det_fin_two_of, one_mul, mul_zero, sub_zero,
+    Ring.inverse_eq_inv', Matrix.adjugate_fin_two_of, neg_zero, Matrix.smul_of,
+    Matrix.smul_cons, smul_eq_mul, Matrix.smul_empty, mul_one, one_mul]
+  ext i j; fin_cases i <;> fin_cases j <;>
+    simp [inv_mul_cancel₀ ((Subtype.coe_ne_coe).mpr hα)]
+
 -- Computes `(diag')⁻¹ * M * diag` as a raw matrix.
 -- diag' = !![1,0;0,α], diag = !![α,0;0,1], so
 -- (diag')⁻¹ * !![a,b;c,d] * diag = !![aα, b; c, d*α⁻¹]
@@ -448,23 +462,22 @@ lemma T_cosets_none_ne_some (hα_nonunit : ¬IsUnit α)
   have hmem := QuotientGroup.eq.mp h
   -- Extract v-value bound on (1,1) entry from membership in U0.
   have h11 := GL2.v_le_one_of_mem_localFullLevel _ hmem 1 1
-  -- Compute the (1,1) entry via matrix multiplication.
-  -- (diag')⁻¹ * unipotent_mul_diag(t) = (diag')⁻¹ * unipotent(t) * diag
-  -- By conjBy_diag'_diag: entry (1,1) = 1 * α⁻¹ = α⁻¹.
-  set_option maxHeartbeats 1600000 in
-  simp only [Units.val_mul, Matrix.coe_units_inv, Matrix.mul_apply, Fin.sum_univ_two,
-    unipotent_mul_diag, unipotent, Matrix.unitOfDetInvertible, val_unitOfInvertible,
-    diag', diag, Matrix.GeneralLinearGroup.diagonal,
-    Matrix.inv_def, Matrix.det_fin_two_of, mul_one, mul_zero, sub_zero, zero_sub,
-    Ring.inverse_eq_inv', Matrix.adjugate_fin_two_of, neg_zero, neg_neg, neg_mul,
-    Matrix.smul_of, Matrix.smul_cons, smul_eq_mul, Matrix.smul_empty,
+  -- Compute the (1,1) entry: (diag')⁻¹ * unipotent_mul_diag(t)
+  -- = !![1,0;0,α⁻¹] * !![α,t;0,1] has (1,1) = α⁻¹.
+  simp only [Units.val_mul, unipotent_mul_diag, unipotent, Matrix.unitOfDetInvertible,
+    val_unitOfInvertible, diag_def, diag'_inv_val, Matrix.mul_apply, Fin.sum_univ_two,
     Matrix.of_apply, Matrix.cons_val', Matrix.cons_val_zero, Matrix.cons_val_one,
-    Matrix.cons_val_fin_one, zero_mul, one_mul, mul_one, mul_zero,
-    add_zero, zero_add] at h11
-  -- h11 should reduce to v(α⁻¹) ≤ 1 after fully unfolding the matrix inverse.
-  -- The simp above partially reduces but gets stuck at det⁻¹ • adjugate.
-  -- Needs: Matrix.diagonal_det, Matrix.adjugate_diagonal for full reduction.
-  sorry
+    Matrix.cons_val_fin_one, zero_mul, one_mul, mul_one, mul_zero, add_zero, zero_add] at h11
+  -- h11 : Valued.v (↑α)⁻¹ ≤ 1 means α⁻¹ ∈ O_v.
+  -- Combined with α ∈ O_v, α is a unit in O_v. Contradiction with hα_nonunit.
+  have hα_ne : (α : v.adicCompletion F) ≠ 0 := (Subtype.coe_ne_coe).mpr hα
+  -- α ∈ O_v means v(α) ≤ 1, and h11 says v(α⁻¹) ≤ 1.
+  -- Since v(α) * v(α⁻¹) = 1 (for nonzero α), both ≤ 1 implies both = 1.
+  -- v(α) = 1 means α is a unit in O_v.
+  -- h11 : v(α⁻¹) ≤ 1 means α⁻¹ ∈ O_v. Since α ∈ O_v and α⁻¹ ∈ O_v, α is a unit.
+  exact hα_nonunit (⟨⟨α, ⟨(α : v.adicCompletion F)⁻¹, h11⟩,
+    by ext; simp [mul_inv_cancel₀ ((Subtype.coe_ne_coe).mpr hα)],
+    by ext; simp [inv_mul_cancel₀ ((Subtype.coe_ne_coe).mpr hα)]⟩, rfl⟩)
 
 /-- Distinct `T_cosets` entries give distinct cosets. -/
 lemma injOn_T_cosets (hα_nonunit : ¬IsUnit α) :
