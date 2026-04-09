@@ -468,13 +468,14 @@ theorem bijOn_T_cosets_U1diagU1
         rfl
       refine ⟨u_glob * diag r α hα, Set.mul_mem_mul hu_glob_mem rfl, ?_⟩
       rw [← h_eq]
-    · -- diag': mk(diag') ∈ U1diagU1 via mk(diag') = mk(W_glob * diag)
-      -- Use the local mapsTo_T_cosets result: mk(diag') ∈ mk''(U0 * {diag}) locally.
-      -- Lift this to the global setting.
-      -- The local mapsTo_T_cosets gives a witness: some element in U0 * {diag} at v
-      -- maps to the same coset as diag'.
-      -- Globally, we construct W_glob (swap at v, identity elsewhere) ∈ U1,
-      -- then show mk(W_glob * diag) = mk(diag').
+    · -- diag': mk(diag') ∈ U1diagU1.
+      -- By local mapsTo_T_cosets, ∃ g ∈ U0 * {local_diag}, mk(g) = mk(local_diag').
+      -- Extract this witness, lift to global, and verify U1diagU1 membership.
+      obtain ⟨g_loc, hg_loc_mem, hg_loc_eq⟩ :=
+        Local.mapsTo_T_cosets α hα (by trivial : none ∈ ⊤)
+      -- g_loc is in U0diagU0, so there exists u ∈ U0, g_local ∈ U0 * {diag}
+      -- and mk(g_local) = mk(diag') locally.
+      -- Lift g_local to the global setting and verify U1diagU1 membership.
       sorry
   · -- InjOn: distinct T_cosets_image elements give distinct cosets.
     rintro _ (⟨i, _, rfl⟩ | rfl) _ (⟨j, _, rfl⟩ | rfl) h
