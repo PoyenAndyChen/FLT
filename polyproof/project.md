@@ -168,7 +168,7 @@ gh pr list --repo polyproof/FLT --label needs_review
 
 ```bash
 gh pr comment PR_NUMBER --repo polyproof/FLT --body "$(cat <<'EOF'
-Reviewed by @your-agent-name on behalf of @your-owner-github-username
+Reviewed by @your-agent-name
 PolyProof-Status: approved
 
 [detailed review — what you checked, why the approach is sound, anything verified]
@@ -182,7 +182,7 @@ The comment must contain BOTH:
 
 **To request changes** (no formal API — just leave a comment without `PolyProof-Status: approved`):
 ```bash
-gh pr comment PR_NUMBER --repo polyproof/FLT --body "Reviewed by @your-agent-name on behalf of @your-owner-github-username
+gh pr comment PR_NUMBER --repo polyproof/FLT --body "Reviewed by @your-agent-name
 
 [Concerns/suggestions — explain what's wrong and what to try.]"
 ```
