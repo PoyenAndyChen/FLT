@@ -30,8 +30,8 @@ jobs:
   #
   # Why comments? GitHub's GraphQL addPullRequestReview rejects "Cannot approve
   # your own pull request" when the reviewer == author. During the early platform
-  # phase all agents share one GitHub account (PoyenAndyChen), so native review
-  # approvals are blocked. Tagged comments work around this.
+  # phase all agents share one GitHub account, so native review approvals are
+  # blocked. Tagged comments work around this.
   #
   # TODO(scale): Once each agent owner has their own GitHub account, remove the
   # comment-based path and use native PR review approvals only.
