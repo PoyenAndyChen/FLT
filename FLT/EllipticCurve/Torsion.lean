@@ -146,6 +146,104 @@ private theorem card_torsionBy_pi_zmod' (n r : ℕ) [NeZero n] (d : ℤ) :
   rw [Nat.card_congr (torsionBy_pi_equiv' ℤ d), Nat.card_pi, Finset.prod_const,
       Finset.card_univ, Fintype.card_fin, card_torsionBy_zmod']
 
+/-- Transport torsion cardinalities across an additive equivalence. -/
+private lemma card_torsionBy_addEquiv' {A B : Type*} [AddCommGroup A] [AddCommGroup B]
+    (e : A ≃+ B) (d : ℕ) :
+    Nat.card (Submodule.torsionBy ℤ A d) = Nat.card (Submodule.torsionBy ℤ B d) := by
+  apply Nat.card_congr
+  refine Equiv.subtypeEquiv e.toEquiv ?_
+  intro a
+  constructor
+  · intro ha
+    rw [Submodule.mem_torsionBy_iff] at ha ⊢
+    change (d : ℤ) • (e a) = 0
+    rw [← map_zsmul e, ha, map_zero]
+  · intro hb
+    rw [Submodule.mem_torsionBy_iff] at hb ⊢
+    change (d : ℤ) • a = 0
+    have hb' : (d : ℤ) • (e a) = 0 := hb
+    have := congr_arg e.symm hb'
+    rwa [map_zsmul, map_zero, AddEquiv.symm_apply_apply] at this
+
+/-- The cardinality of the d-torsion of a pi type of ZMod's is the product of gcds. -/
+private theorem card_torsionBy_pi_zmod_general' {ι : Type*} [Fintype ι] (n : ι → ℕ)
+    [∀ i, NeZero (n i)] (d : ℕ) :
+    Nat.card (Submodule.torsionBy ℤ (∀ i, ZMod (n i)) (d : ℤ)) =
+      ∏ i : ι, Nat.gcd d (n i) := by
+  rw [Nat.card_congr (torsionBy_pi_equiv' ℤ (d : ℤ)), Nat.card_pi]
+  congr 1; ext i; exact card_torsionBy_zmod_nat' (n i) d
+
+/-- The cardinality of the d-torsion of a direct sum of ZMod's equals the product of gcds. -/
+private theorem card_torsionBy_directSum_zmod' {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (n : ι → ℕ) [∀ i, NeZero (n i)] (d : ℕ) :
+    Nat.card (Submodule.torsionBy ℤ (DirectSum ι (fun i => ZMod (n i))) (d : ℤ)) =
+      ∏ i : ι, Nat.gcd d (n i) := by
+  rw [← card_torsionBy_pi_zmod_general' n d]
+  exact card_torsionBy_addEquiv' (DirectSum.addEquivProd (fun i => ZMod (n i))) d
+
+/-- If two Fintype-indexed families of positive naturals yield the same multiset,
+there exists an equivalence between the index types preserving the values.
+This follows from the general theory of multisets. -/
+private lemma equiv_of_multiset_map_eq {ι₁ ι₂ : Type*} [Fintype ι₁] [Fintype ι₂]
+    {n₁ : ι₁ → ℕ} {n₂ : ι₂ → ℕ}
+    (h : Finset.univ.val.map n₁ = Finset.univ.val.map n₂) :
+    ∃ (e : ι₁ ≃ ι₂), ∀ i, n₁ i = n₂ (e i) := by
+  classical
+  -- Equal multisets ⟹ equal fiber cardinalities ⟹ fiber equivalences
+  have h_fiber : ∀ c : ℕ, Nonempty ({i : ι₁ // n₁ i = c} ≃ {j : ι₂ // n₂ j = c}) := by
+    intro c
+    apply Fintype.card_eq.mp
+    rw [Fintype.card_subtype, Fintype.card_subtype]
+    have hc : Multiset.count c (Finset.univ.val.map n₁) =
+        Multiset.count c (Finset.univ.val.map n₂) := congr_arg _ h
+    simp only [Multiset.count_map] at hc
+    -- Convert Multiset.filter to Finset.filter
+    have conv₁ : Multiset.card (Multiset.filter (fun a => c = n₁ a) Finset.univ.val) =
+        (Finset.univ.filter (fun a => n₁ a = c)).card := by
+      rw [← Finset.filter_val]; congr 1; ext x; simp [eq_comm]
+    have conv₂ : Multiset.card (Multiset.filter (fun a => c = n₂ a) Finset.univ.val) =
+        (Finset.univ.filter (fun a => n₂ a = c)).card := by
+      rw [← Finset.filter_val]; congr 1; ext x; simp [eq_comm]
+    rw [conv₁, conv₂] at hc
+    exact hc
+  -- Build the global equivalence from fiber equivalences
+  exact ⟨Equiv.ofFiberEquiv (fun c => (h_fiber c).some),
+    fun i => (Equiv.ofFiberEquiv_map _ i).symm⟩
+
+/-- The multiset of invariant factors > 1 is uniquely determined by the function
+d ↦ ∏ᵢ gcd(d, nᵢ). This is the hard combinatorial core: two multisets of naturals > 1
+that give the same product of gcds for every d must be equal. -/
+private theorem multiset_eq_of_prod_gcd_eq' {s t : Multiset ℕ}
+    (hs : ∀ x ∈ s, 1 < x) (ht : ∀ x ∈ t, 1 < x)
+    (h : ∀ d : ℕ, (s.map (Nat.gcd d)).prod = (t.map (Nat.gcd d)).prod) :
+    s = t := by
+  sorry
+
+private theorem directSum_zmod_addEquiv_of_torsionBy_eq'
+    {ι₁ ι₂ : Type*} [Fintype ι₁] [Fintype ι₂] [DecidableEq ι₁] [DecidableEq ι₂]
+    {n₁ : ι₁ → ℕ} {n₂ : ι₂ → ℕ} [∀ i, NeZero (n₁ i)] [∀ i, NeZero (n₂ i)]
+    (hn₁ : ∀ i, 1 < n₁ i) (hn₂ : ∀ i, 1 < n₂ i)
+    (h : ∀ d : ℕ, ∏ i : ι₁, Nat.gcd d (n₁ i) = ∏ i : ι₂, Nat.gcd d (n₂ i)) :
+    Nonempty (DirectSum ι₁ (fun i => ZMod (n₁ i)) ≃+
+             DirectSum ι₂ (fun i => ZMod (n₂ i))) := by
+  -- Step 1: Show the multisets of moduli are equal
+  have h_multi : Finset.univ.val.map n₁ = Finset.univ.val.map n₂ := by
+    apply multiset_eq_of_prod_gcd_eq'
+    · intro x hx; obtain ⟨i, _, rfl⟩ := Multiset.mem_map.mp hx; exact hn₁ i
+    · intro x hx; obtain ⟨i, _, rfl⟩ := Multiset.mem_map.mp hx; exact hn₂ i
+    · intro d
+      simp only [Multiset.map_map, Function.comp]
+      rw [← Finset.prod_eq_multiset_prod, ← Finset.prod_eq_multiset_prod]
+      exact h d
+  -- Step 2: Get an equivalence between index types
+  obtain ⟨σ, hσ⟩ := equiv_of_multiset_map_eq h_multi
+  -- Step 3: Build the isomorphism via pi types
+  -- ⨁ᵢ₁ ZMod(n₁ i₁) ≃ ∀ i₁, ZMod(n₁ i₁) ≃ ∀ i₁, ZMod(n₂ (σ i₁)) ≃ ∀ i₂, ZMod(n₂ i₂) ≃ ⨁ᵢ₂ ZMod(n₂ i₂)
+  refine ⟨(DirectSum.addEquivProd (fun i => ZMod (n₁ i))).trans ?_ |>.trans
+    (DirectSum.addEquivProd (fun i => ZMod (n₂ i))).symm⟩
+  exact (AddEquiv.piCongrRight fun i₁ => (ZMod.ringEquivCongr (hσ i₁)).toAddEquiv).trans
+    (RingEquiv.piCongrLeft (fun i₂ => ZMod (n₂ i₂)) σ).toAddEquiv
+
 /-- Two finite abelian groups with the same d-torsion cardinality for all d are isomorphic.
 This follows from the uniqueness of the invariant factor decomposition: the function
 d ↦ |G[d]| determines the multiset of elementary divisors p^e in the structure theorem
@@ -155,7 +253,20 @@ private theorem addEquiv_of_torsionBy_card_eq' {G H : Type*}
     (h : ∀ d : ℕ, Nat.card (Submodule.torsionBy ℤ G d) =
       Nat.card (Submodule.torsionBy ℤ H d)) :
     Nonempty (G ≃+ H) := by
-  sorry
+  classical
+  -- Apply the structure theorem to both groups
+  obtain ⟨ι₁, _, n₁, hn₁, ⟨e₁⟩⟩ := AddCommGroup.equiv_directSum_zmod_of_finite' G
+  obtain ⟨ι₂, _, n₂, hn₂, ⟨e₂⟩⟩ := AddCommGroup.equiv_directSum_zmod_of_finite' H
+  haveI : ∀ i, NeZero (n₁ i) := fun i => ⟨by linarith [hn₁ i]⟩
+  haveI : ∀ i, NeZero (n₂ i) := fun i => ⟨by linarith [hn₂ i]⟩
+  -- Transfer torsion cardinality condition to products of gcds
+  have h_prod : ∀ d : ℕ, ∏ i : ι₁, Nat.gcd d (n₁ i) = ∏ i : ι₂, Nat.gcd d (n₂ i) := by
+    intro d
+    rw [← card_torsionBy_directSum_zmod' n₁ d, ← card_torsionBy_addEquiv' e₁ d,
+        h d, card_torsionBy_addEquiv' e₂ d, card_torsionBy_directSum_zmod' n₂ d]
+  -- Use the direct sum isomorphism
+  obtain ⟨φ⟩ := directSum_zmod_addEquiv_of_torsionBy_eq' hn₁ hn₂ h_prod
+  exact ⟨e₁.trans (φ.trans e₂.symm)⟩
 
 end group_theory_lemma_helpers
 
