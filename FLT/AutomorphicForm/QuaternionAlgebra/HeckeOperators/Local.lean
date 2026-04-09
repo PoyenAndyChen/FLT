@@ -377,10 +377,11 @@ lemma mapsTo_T_cosets_U0diagU0 :
   cases t with
   | none =>
     -- diag' is in the double coset U0 · diag · U0.
-    -- Proof: let w = !![0, 1; 1, 0] ∈ U0 (the swap/permutation matrix).
-    -- Then w * diag ∈ U0 * {diag}, and (w * diag)⁻¹ * diag' = w ∈ U0,
-    -- so mk(w * diag) = mk(diag'), hence mk(diag') ∈ U0diagU0.
-    simp only [T_cosets]
+    -- Let w = swap matrix !![0, 1; 1, 0] ∈ U0. Then w * diag ∈ U0 * {diag},
+    -- and (w * diag)⁻¹ * diag' = w ∈ U0, so mk(w * diag) = mk(diag').
+    simp only [T_cosets, U0diagU0]
+    -- We construct the witness: swap * diag ∈ U0 * {diag}
+    -- Then show mk(swap * diag) = mk(diag') via (swap * diag)⁻¹ * diag' = swap ∈ U0
     sorry
   | some t =>
     -- unipotent_mul_diag t = unipotent(t) * diag, where unipotent(t) ∈ U0
@@ -410,13 +411,29 @@ lemma injOn_T_cosets
       -- Symmetric to the none/some case above.
       sorry
     | some t₂ =>
-      -- Same proof as injOn_unipotent_mul_diagU1 (Local.lean:242), but with U0 instead of U1.
-      -- Key steps:
-      -- 1. simp/unfold T_cosets to get h : mk(unipotent_mul_diag t₁) = mk(unipotent_mul_diag t₂)
-      -- 2. QuotientGroup.eq.mp h gives (unipotent_mul_diag t₁)⁻¹ * unipotent_mul_diag t₂ ∈ U0
-      -- 3. By unipotent_mul_diag_inv_mul_unipotent_mul_diag, this product is unipotent(α⁻¹(t₂-t₁))
-      -- 4. Membership in U0 forces α⁻¹(t₂-t₁) ∈ O_v, i.e., t₂-t₁ ∈ αO_v, i.e., t₁ = t₂ in O_v/αO_v
-      sorry
+      -- Same proof as injOn_unipotent_mul_diagU1, but with U0 instead of U1.
+      -- (unipotent_mul_diag t₁)⁻¹ * unipotent_mul_diag t₂ ∈ U0 forces t₁ = t₂ mod α.
+      change (QuotientGroup.mk (s := U0 v)
+        (unipotent_mul_diag α hα (Quotient.out t₁))) =
+        (QuotientGroup.mk (s := U0 v)
+        (unipotent_mul_diag α hα (Quotient.out t₂))) at h
+      have unipotent_mem_U0 :=
+        (unipotent_mul_diag_inv_mul_unipotent_mul_diag α hα
+          (Quotient.out t₁) (Quotient.out t₂)) ▸
+          (QuotientGroup.eq.mp h)
+      have unipotent_apply_zero_one_mem_integer :=
+        GL2.v_le_one_of_mem_localFullLevel _ unipotent_mem_U0 0 1
+      simp only [unipotent, Matrix.unitOfDetInvertible, Fin.isValue,
+        val_unitOfInvertible, Matrix.of_apply, Matrix.cons_val',
+        Matrix.cons_val_one, Matrix.cons_val_fin_one,
+        Matrix.cons_val_zero] at unipotent_apply_zero_one_mem_integer
+      congr 1
+      rw [← (QuotientAddGroup.out_eq' t₁), ← (QuotientAddGroup.out_eq' t₂)]
+      apply QuotientAddGroup.eq.mpr; apply Ideal.mem_span_singleton'.mpr
+      use ⟨_, unipotent_apply_zero_one_mem_integer⟩
+      apply (Subtype.coe_inj).mp; push_cast
+      ring_nf
+      rw [mul_inv_cancel₀ ((Subtype.coe_ne_coe).mpr hα), one_mul, one_mul]
 
 /-- Every coset in `U0diagU0` is represented by some `T_cosets` value.
 This is the hard part: uses a case split on whether the (1,1) entry of `x ∈ U0`
