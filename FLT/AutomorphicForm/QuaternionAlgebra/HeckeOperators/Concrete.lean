@@ -187,6 +187,22 @@ noncomputable def unipotent_mul_diag (t : ↑(adicCompletionIntegers F v) ⧸ (I
     (RestrictedProduct.mulSingle _ _
       (Local.GL2.unipotent_mul_diag α hα (Quotient.out t : adicCompletionIntegers F v))))
 
+/-- The (global) matrix element `diag'[1, α]` = !![1, 0; 0, α].
+This is the "extra" coset representative in the T_v double coset decomposition
+at good primes (v ∉ S). Lifted from the local definition `Local.diag'`. -/
+noncomputable def diag' :
+    (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+  Units.mapEquiv r.symm.toMulEquiv
+    (FiniteAdeleRing.GL2.restrictedProduct.symm
+    (RestrictedProduct.mulSingle _ _ (Local.diag' α hα)))
+
+/-- The set of `q+1` coset representatives for the T_v double coset at good primes:
+the `q` unipotent_mul_diag cosets plus the extra diag' coset.
+These form a set of coset representatives for `U1 diag U1` when `v ∉ S`. -/
+noncomputable def T_cosets_image :
+    Set (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+  (unipotent_mul_diag r α hα) '' ⊤ ∪ {diag' r α hα}
+
 /-- The set of elements `unipotent_mul_diag`, that is, the elements of `(D ⊗ 𝔸_F^∞)ˣ`
 which are `(α t;0 1)` at `v` and the identity elsewhere, as `t` runs through a set
 of coset reps of `𝓞ᵥ / α`. These will form a set of coset representatives for `U1 diag U1`.
@@ -403,6 +419,23 @@ lemma unipotent_mul_diag_image_finite :
     (bijOn_unipotent_mul_diagU1_U1diagU1 r {v} α hα (Finset.mem_singleton.mpr rfl))).mpr
   unfold U1diagU1
   exact (QuotientGroup.mk_image_finite_of_compact_of_open (U1_compact r {v}) (U1_open r {v}))
+
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
+/-- The T_cosets_image is a set of coset representatives for the double coset
+`U1 · diag(α,1) · U1` when the local version has a bijOn at each place.
+For good primes (v ∉ S), this follows from the local T_cosets bijOn.
+The proof mirrors bijOn_unipotent_mul_diagU1_U1diagU1 but uses T_cosets_image
+(which includes the extra diag' coset) instead of unipotent_mul_diag_image. -/
+theorem bijOn_T_cosets_U1diagU1
+    (hα_irr : Irreducible α) :
+    (T_cosets_image r α hα).BijOn QuotientGroup.mk (U1diagU1 r S α hα) := by
+  -- This theorem globalizes Local.bijOn_T_cosets_U0diagU0 to the adelic setting.
+  -- The proof structure mirrors bijOn_unipotent_mul_diagU1_U1diagU1 but
+  -- uses T_cosets_image = unipotent_mul_diag_image ∪ {diag'} and requires
+  -- v ∉ S (so U1 at v is the full GL₂(O_v)).
+  -- The key difference: the local bijOn_T_cosets_U0diagU0 gives q+1 cosets
+  -- instead of q, with the extra coset being diag'.
+  sorry
 
 omit [IsTotallyReal F] in
 lemma quot_top_finite (r : Rigidification F D) (α : v.adicCompletionIntegers F) (hα : α ≠ 0) :
@@ -648,6 +681,39 @@ lemma unipotent_mul_diag_commute_of_ne
     RestrictedProduct.mulSingle_commute _ hvw _ _
   exact (hrp.map (FiniteAdeleRing.GL2.restrictedProduct (F := F)).symm.toMonoidHom).map
     (Units.mapEquiv r.symm.toMulEquiv).toMonoidHom
+
+omit [IsTotallyReal F] [IsQuaternionAlgebra F D] in
+/-- Any two T_cosets_image elements at distinct places commute:
+they have disjoint support in the restricted product.
+This covers all pairwise commutativity cases: diag-diag, diag-unipotent_mul_diag,
+unipotent_mul_diag-diag', diag'-diag', etc. -/
+lemma T_cosets_image_commute_of_ne
+    {v w : HeightOneSpectrum (𝓞 F)} (hvw : v ≠ w)
+    {α : v.adicCompletionIntegers F} (hα : α ≠ 0)
+    {β : w.adicCompletionIntegers F} (hβ : β ≠ 0)
+    (a : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ) (ha : a ∈ T_cosets_image r α hα)
+    (b : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ) (hb : b ∈ T_cosets_image r β hβ) :
+    a * b = b * a := by
+  -- Every element of T_cosets_image is a mulSingle at v (resp w).
+  -- mulSingle at distinct places commute via RestrictedProduct.mulSingle_commute.
+  rcases ha with ⟨i, _, rfl⟩ | rfl <;> rcases hb with ⟨j, _, rfl⟩ | rfl
+  · -- unipotent_mul_diag at v, unipotent_mul_diag at w
+    exact (unipotent_mul_diag_commute_of_ne r hvw hα hβ i j).eq
+  · -- unipotent_mul_diag at v, diag' at w
+    unfold unipotent_mul_diag diag'
+    exact ((RestrictedProduct.mulSingle_commute _ hvw _ _).map
+      (FiniteAdeleRing.GL2.restrictedProduct (F := F)).symm.toMonoidHom |>.map
+      (Units.mapEquiv r.symm.toMulEquiv).toMonoidHom).eq
+  · -- diag' at v, unipotent_mul_diag at w
+    unfold diag' unipotent_mul_diag
+    exact ((RestrictedProduct.mulSingle_commute _ hvw _ _).map
+      (FiniteAdeleRing.GL2.restrictedProduct (F := F)).symm.toMonoidHom |>.map
+      (Units.mapEquiv r.symm.toMulEquiv).toMonoidHom).eq
+  · -- diag' at v, diag' at w
+    unfold diag'
+    exact ((RestrictedProduct.mulSingle_commute _ hvw _ _).map
+      (FiniteAdeleRing.GL2.restrictedProduct (F := F)).symm.toMonoidHom |>.map
+      (Units.mapEquiv r.symm.toMulEquiv).toMonoidHom).eq
 
 omit [IsTotallyReal F] in
 lemma U_comm {v : HeightOneSpectrum (𝓞 F)} (hv : v ∈ S)
