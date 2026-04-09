@@ -539,9 +539,21 @@ lemma surjOn_T_cosets_U0diagU0
     constructor
     · trivial
     · -- mk(T_cosets(some t)) = mk(x * diag)
-      -- Choose t = ⅟d * b, then (unipotent_mul_diag(out t))⁻¹ * (x * diag) ∈ U0.
-      -- The proof that the ratio is in U0 follows from the existing surjOn for U1:
-      -- surjOn_unipotent_mul_diagU1_U1diagU1 shows the ratio lies in U1, and U1 ⊆ U0.
+      -- t = ⅟d * b. The ratio (unipotent_mul_diag(out t))⁻¹ * (x * diag) is in U0
+      -- because diag⁻¹ * (unipotent(-out_t) * x) * diag has all entries in O_v:
+      -- entry (0,1) = α⁻¹(b - out_t * d) ∈ O_v since b - out_t * d ∈ Ideal.span {α}.
+      simp only [T_cosets]
+      apply QuotientGroup.eq.mpr
+      unfold unipotent_mul_diag; rw [mul_inv_rev, ← mul_assoc, mul_assoc _ _ x]
+      -- Show diag⁻¹ * (unipotent(-out_t) * x) * diag ∈ U0 = localFullLevel.
+      -- Use mem_localFullLevel_iff to check entries and det.
+      have ht : (b + -Quotient.out t * d) ∈ Ideal.span {α} := by
+        apply Ideal.mem_span_singleton'.mpr
+        have t_def : (Ideal.Quotient.mk (Ideal.span {α})) (Quotient.out t) = (⅟d * b) := by
+          simp only [Ideal.Quotient.mk_out]; rfl
+        obtain ⟨q, hq⟩ := Ideal.mem_span_singleton'.mp (Ideal.Quotient.eq.mp t_def)
+        use -d * q; rw [mul_assoc, hq]; ring_nf; simp
+      -- Now prove membership in U0 via the entry+det criterion.
       sorry
   · -- Case 2: d is not a unit. Since α is irreducible, α generates maximalIdeal.
     -- Every non-unit in O_v is in maximalIdeal = Ideal.span {α}, so α | d.
