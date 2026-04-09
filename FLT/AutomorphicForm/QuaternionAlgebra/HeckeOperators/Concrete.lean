@@ -660,6 +660,181 @@ lemma U_comm {v : HeightOneSpectrum (𝓞 F)} (hv : v ∈ S)
 
 end U
 
+section TCosets
+
+/-! ### Globalization of the T_v double coset decomposition
+
+For the commutativity of Hecke operators at distinct "good" primes, we need to
+exhibit explicit coset representatives for `U1(S) · g_T_v · U1(S)` where `g_T_v`
+is the diagonal matrix `diag(ϖ_v, 1)` used in `HeckeOperator.T`. The representatives
+must be supported at `v` (via `mulSingle`) so that representatives at different places
+commute.
+
+The local decomposition `bijOn_T_cosets_U0diagU0` (in Local.lean) gives q+1 coset
+representatives for `U0(v) · diag(α,1) · U0(v)` when `α` is irreducible. Here we
+globalize this to the restricted product via `mulSingle`, using the fact that
+`U1(S)` at place `v ∉ S` coincides with `U0(v) = GL₂(𝒪_v)`.
+-/
+
+variable {F D}
+
+open scoped TensorProduct.RightActions
+open scoped Pointwise
+
+/-- The adic completion uniformizer at `v`, viewed as an element of `𝒪_v`.
+It is integral because its valuation `ofAdd(-1)` is `≤ 1`. -/
+noncomputable def localUniformiserInt (v : HeightOneSpectrum (𝓞 F)) :
+    v.adicCompletionIntegers F :=
+  ⟨v.adicCompletionUniformizer F, by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    rw [HeightOneSpectrum.adicCompletionUniformizer_spec]
+    exact_mod_cast le_of_lt (show Multiplicative.ofAdd (-1 : ℤ) < Multiplicative.ofAdd (0 : ℤ)
+      from Multiplicative.ofAdd_lt.mpr (by omega))⟩
+
+omit [IsTotallyReal F] in
+lemma localUniformiserInt_ne_zero (v : HeightOneSpectrum (𝓞 F)) :
+    localUniformiserInt v ≠ 0 := by
+  intro h
+  apply HeightOneSpectrum.adicCompletionUniformizer_ne_zero F v
+  have := congr_arg Subtype.val h
+  simpa [localUniformiserInt] using this
+
+omit [IsTotallyReal F] in
+lemma localUniformiserInt_val_spec (v : HeightOneSpectrum (𝓞 F)) :
+    Valued.v (localUniformiserInt v : v.adicCompletion F) =
+      Multiplicative.ofAdd (-1 : ℤ) :=
+  HeightOneSpectrum.adicCompletionUniformizer_spec F v
+
+omit [IsTotallyReal F] in
+lemma localUniformiserInt_irreducible (v : HeightOneSpectrum (𝓞 F)) :
+    Irreducible (localUniformiserInt v) := by
+  rw [IsDiscreteValuationRing.irreducible_iff_uniformizer]
+  exact adicCompletion.maximalIdeal_eq_span_uniformizer F v
+    (localUniformiserInt_val_spec v)
+
+/-- The global "secondary diagonal" `diag'` coset representative at `v`:
+`!![1, 0; 0, ϖ_v]` at place `v`, identity elsewhere. -/
+noncomputable def diag'_global (v : HeightOneSpectrum (𝓞 F)) :
+    (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+  Units.mapEquiv r.symm.toMulEquiv
+    (FiniteAdeleRing.GL2.restrictedProduct.symm
+    (RestrictedProduct.mulSingle _ v
+      (Local.diag' (localUniformiserInt v) (localUniformiserInt_ne_zero v))))
+
+/-- The global T-coset representative map for `v`:
+- `none` maps to the "secondary diagonal" `diag'_global r v`
+- `some t` maps to the "unipotent × diagonal" `unipotent_mul_diag r (localUniformiserInt v) ... t`
+-/
+noncomputable def T_cosets_global (v : HeightOneSpectrum (𝓞 F)) :
+    Option (adicCompletionIntegers F v ⧸ Ideal.span {localUniformiserInt v}) →
+    (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ
+  | none => diag'_global r v
+  | some t => unipotent_mul_diag r (localUniformiserInt v) (localUniformiserInt_ne_zero v) t
+
+/-- The image set of `T_cosets_global`, containing all q+1 representatives. -/
+noncomputable def T_cosets_image (v : HeightOneSpectrum (𝓞 F)) :
+    Set (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+  (T_cosets_global r v) '' ⊤
+
+omit [IsQuaternionAlgebra F D] in
+omit [IsTotallyReal F] in
+/-- All T coset representatives at `v` are supported at `v` via `mulSingle`,
+hence commute with any `mulSingle` at a different place `w ≠ v`. -/
+lemma T_cosets_global_commute_of_ne
+    {v w : HeightOneSpectrum (𝓞 F)} (hvw : v ≠ w)
+    (a : Option (adicCompletionIntegers F v ⧸ Ideal.span {localUniformiserInt v}))
+    (b : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ)
+    (hb : ∃ (g_loc : GL (Fin 2) (w.adicCompletion F)),
+      b = Units.mapEquiv r.symm.toMulEquiv
+        (FiniteAdeleRing.GL2.restrictedProduct.symm
+          (RestrictedProduct.mulSingle _ w g_loc))) :
+    Commute (T_cosets_global r v a) b := by
+  obtain ⟨g_loc, rfl⟩ := hb
+  cases a with
+  | none =>
+    unfold T_cosets_global diag'_global
+    have hrp : Commute
+        (RestrictedProduct.mulSingle
+          (fun v : HeightOneSpectrum (𝓞 F) => (M2.localFullLevel v).units) v
+          (Local.diag' (localUniformiserInt v) (localUniformiserInt_ne_zero v)))
+        (RestrictedProduct.mulSingle
+          (fun v : HeightOneSpectrum (𝓞 F) => (M2.localFullLevel v).units) w
+          g_loc) :=
+      RestrictedProduct.mulSingle_commute _ hvw _ _
+    exact (hrp.map (FiniteAdeleRing.GL2.restrictedProduct (F := F)).symm.toMonoidHom).map
+      (Units.mapEquiv r.symm.toMulEquiv).toMonoidHom
+  | some t =>
+    unfold T_cosets_global unipotent_mul_diag
+    have hrp : Commute
+        (RestrictedProduct.mulSingle
+          (fun v : HeightOneSpectrum (𝓞 F) => (M2.localFullLevel v).units) v
+          (Local.GL2.unipotent_mul_diag (localUniformiserInt v)
+            (localUniformiserInt_ne_zero v) (Quotient.out t)))
+        (RestrictedProduct.mulSingle
+          (fun v : HeightOneSpectrum (𝓞 F) => (M2.localFullLevel v).units) w
+          g_loc) :=
+      RestrictedProduct.mulSingle_commute _ hvw _ _
+    exact (hrp.map (FiniteAdeleRing.GL2.restrictedProduct (F := F)).symm.toMonoidHom).map
+      (Units.mapEquiv r.symm.toMulEquiv).toMonoidHom
+
+set_option maxHeartbeats 1600000 in
+-- The `change` tactic triggers significant `whnf` unfolding through the restricted product
+-- + rigidification pipeline when matching `Units.map` against `Units.mapEquiv`.
+/-- The global element `g_T_v` used in `HeckeOperator.T` coincides with
+`diag r (localUniformiserInt v) ...` (the global embedding of the local diagonal).
+This bridges `HeckeOperator.T` (which uses `localUniformiserUnit`) with the
+mulSingle-based definition used for the T coset decomposition. -/
+-- TODO: This lemma is true by a pointwise computation: both sides are `r.symm` applied
+-- to the same `GL₂(FiniteAdeleRing)` element, which at each place `w` is
+-- `diag(uniformizer, 1)` if `w = v` and the identity otherwise. The proof requires
+-- unfolding `localUniformiserUnit`, `GL2.restrictedProduct`, `Local.GL2.diag`, and
+-- `localUniformiserInt` through several layers of the restricted product isomorphism
+-- and then comparing matrix entries pointwise.
+lemma T_diag_eq (v : HeightOneSpectrum (𝓞 F)) :
+    Units.map r.symm.toMonoidHom (Matrix.GeneralLinearGroup.diagonal
+      ![FiniteAdeleRing.localUniformiserUnit F v, 1]) =
+    diag r (localUniformiserInt v) (localUniformiserInt_ne_zero v) := by
+  -- Reduce to showing the underlying `GL₂(FiniteAdeleRing)` elements agree.
+  -- Both sides apply `r.symm` to GL₂(FiniteAdeleRing) elements. Since `r.symm` is injective,
+  -- it suffices to show the GL₂ elements agree.
+  -- The two forms of `r.symm` on units (via `map` and `mapEquiv`) are defeq.
+  change (Units.mapEquiv r.symm.toMulEquiv)
+    (Matrix.GeneralLinearGroup.diagonal ![FiniteAdeleRing.localUniformiserUnit F v, 1]) =
+    (Units.mapEquiv r.symm.toMulEquiv)
+      ((FiniteAdeleRing.GL2.restrictedProduct (F := F)).symm
+        (RestrictedProduct.mulSingle _ _ (Local.GL2.diag (localUniformiserInt v)
+          (localUniformiserInt_ne_zero v))))
+  congr 1
+  -- The core computation: showing two `GL₂(FiniteAdeleRing)` elements are equal.
+  -- Both sides, when projected to each local place `w` via `GL2.toAdicCompletion w`, give:
+  -- - At `w = v`: `diag(ϖ_v, 1)` in `GL₂(K_v)` (the local uniformizer diagonal).
+  -- - At `w ≠ v`: the identity in `GL₂(K_w)` (since `localUniformiserUnit v` is a mulSingle).
+  -- The proof requires unfolding `GL2.restrictedProduct` (which is
+  -- `ContinuousMulEquiv.restrictedProductMatrixUnits`) and comparing entry-by-entry at each
+  -- local place. This is a straightforward but tedious definitional computation.
+  sorry
+
+/-- The double coset space `U₁(S) diag(ϖ_v, 1) U₁(S)` as a set of left cosets, for T. -/
+noncomputable def T_U1diagU1 (v : HeightOneSpectrum (𝓞 F)) :
+    Set ((D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ ⧸ (U1 r S)) :=
+  let g : (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ :=
+    diag r (localUniformiserInt v) (localUniformiserInt_ne_zero v)
+  QuotientGroup.mk '' ((↑(U1 r S) : Set (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ) *
+    ({g} : Set (D ⊗[F] (FiniteAdeleRing (𝓞 F) F))ˣ))
+
+-- TODO: This follows the same pattern as `bijOn_unipotent_mul_diagU1_U1diagU1`
+-- but uses the local `bijOn_T_cosets_U0diagU0` instead. The proof lifts the local
+-- T_cosets decomposition to the global restricted product:
+-- - MapsTo: each T_cosets_global element can be written as `u * diag` for `u ∈ U1(S)`.
+-- - InjOn: distinct T_cosets_global elements give distinct cosets (using the local InjOn).
+-- - SurjOn: every coset in the double coset space is represented (using the local SurjOn).
+-- The key fact is that for `v ∉ S`, `U1(S)` at place `v` is `U0(v) = GL₂(𝒪_v)`.
+theorem bijOn_T_cosets_U1diagU1 (v : HeightOneSpectrum (𝓞 F)) (hv : v ∉ S) :
+    (T_cosets_image r v).BijOn QuotientGroup.mk (T_U1diagU1 r S v) := by
+  sorry
+
+end TCosets
+
 end HeckeOperator
 
 open HeckeOperator
@@ -755,31 +930,57 @@ noncomputable instance instCommRing :
       subst hvw
       rfl
     · -- v ≠ w: disjoint support argument via `AbstractHeckeOperator.comm`.
-      -- TODO: Blocked on missing infrastructure. `AbstractHeckeOperator.comm` requires a
-      -- `Set.BijOn QuotientGroup.mk s (QuotientGroup.mk '' (U1 * {diag(ϖ_v,1)}))` witness
-      -- exhibiting a concrete set `s` of v-supported left-coset representatives for the
-      -- double coset `U1 · diag(ϖ_v,1) · U1`. The only such witness currently in the
-      -- codebase is `bijOn_unipotent_mul_diagU1_U1diagU1`, which is proven only for
-      -- `v ∈ S` (where U1 at v is the Iwahori-style subgroup and the double coset has
-      -- |O_v / α| single cosets). For `v ∉ S`, U1 at v is the full maximal compact
-      -- `GL₂(𝒪_v)` and the classical `T_v` double coset decomposes into q+1 single
-      -- cosets (`diag(ϖ_v,1)` and `(1 t; 0 ϖ_v)` for `t` in 𝒪_v/ϖ_v), but no analogue of
-      -- `bijOn_unipotent_mul_diagU1_U1diagU1` has been built for this case. Closing this
-      -- sorry requires adding (a) a local lemma in Local.lean giving a BijOn for the
-      -- T_v double coset at a good prime, and (b) the global lift mirroring
-      -- `bijOn_unipotent_mul_diagU1_U1diagU1` in this file.
-      sorry
+      -- Use the T coset decomposition: representatives are supported at v (resp. w)
+      -- via mulSingle, so reps at different places commute.
+      change HeckeOperator.T r R v * HeckeOperator.T r R w =
+        HeckeOperator.T r R w * HeckeOperator.T r R v
+      unfold HeckeOperator.T
+      -- After unfolding, `g = Units.map r.symm ... (diagonal ![localUniformiserUnit F v, 1])`.
+      -- Rewrite using `T_diag_eq` to get `diag r (localUniformiserInt v) ...`.
+      simp_rw [T_diag_eq]
+      apply AbstractHeckeOperator.comm (R := R)
+      refine ⟨T_cosets_image r v, T_cosets_image r w,
+        bijOn_T_cosets_U1diagU1 r S v hv,
+        bijOn_T_cosets_U1diagU1 r S w hw, ?_⟩
+      rintro a ⟨i, _, rfl⟩ b ⟨j, _, rfl⟩
+      -- Both `T_cosets_global r v i` and `T_cosets_global r w j` are mulSingle elements
+      -- at distinct places `v` and `w`, so they commute.
+      exact (T_cosets_global_commute_of_ne r hvw i
+        (T_cosets_global r w j)
+        (by cases j with
+        | none => exact ⟨_, rfl⟩
+        | some t => exact ⟨_, rfl⟩)).eq
   · -- (T_v, U_{w,β}): good prime T_v commutes with bad prime U_{w,β}. Since v ∉ S and
     -- w ∈ S, we have v ≠ w, so the representatives are supported at disjoint places.
-    -- TODO: Blocked on the same missing T_v coset-representative infrastructure as the
-    -- (T_v, T_w) case above. The U_{w,β} side has
-    -- `bijOn_unipotent_mul_diagU1_U1diagU1 r S β hβ hw` available, but the T_v side
-    -- still needs a BijOn witness for `U1 · diag(ϖ_v,1) · U1` before
-    -- `AbstractHeckeOperator.comm` can be applied.
-    sorry
-  · -- (U_{v,α}, T_w): symmetric to the previous case.
-    -- TODO: Blocked on the same missing T_w coset-representative infrastructure.
-    sorry
+    have hvw : v ≠ w := fun h => hv (h ▸ hw)
+    change HeckeOperator.T r R v * HeckeOperator.U r S R β hβ =
+      HeckeOperator.U r S R β hβ * HeckeOperator.T r R v
+    unfold HeckeOperator.T HeckeOperator.U
+    simp_rw [T_diag_eq]
+    apply AbstractHeckeOperator.comm (R := R)
+    refine ⟨T_cosets_image r v, unipotent_mul_diag_image r β hβ,
+      bijOn_T_cosets_U1diagU1 r S v hv,
+      bijOn_unipotent_mul_diagU1_U1diagU1 r S β hβ hw, ?_⟩
+    rintro a ⟨i, _, rfl⟩ b ⟨j, _, rfl⟩
+    -- `T_cosets_global r v i` is a mulSingle at `v`, and
+    -- `unipotent_mul_diag r β hβ j` is a mulSingle at `w`, with `v ≠ w`.
+    exact (T_cosets_global_commute_of_ne r hvw i
+      (unipotent_mul_diag r β hβ j) ⟨_, rfl⟩).eq
+  · -- (U_{v,α}, T_w): symmetric to the (T, U) case.
+    have hvw : v ≠ w := fun h => hw (h ▸ hv)
+    change HeckeOperator.U r S R α hα * HeckeOperator.T r R w =
+      HeckeOperator.T r R w * HeckeOperator.U r S R α hα
+    unfold HeckeOperator.T HeckeOperator.U
+    simp_rw [T_diag_eq]
+    apply AbstractHeckeOperator.comm (R := R)
+    refine ⟨unipotent_mul_diag_image r α hα, T_cosets_image r w,
+      bijOn_unipotent_mul_diagU1_U1diagU1 r S α hα hv,
+      bijOn_T_cosets_U1diagU1 r S w hw, ?_⟩
+    rintro a ⟨i, _, rfl⟩ b ⟨j, _, rfl⟩
+    -- `unipotent_mul_diag r α hα i` is a mulSingle at `v`, and
+    -- `T_cosets_global r w j` is a mulSingle at `w`, with `v ≠ w`.
+    exact (T_cosets_global_commute_of_ne r (Ne.symm hvw) j
+      (unipotent_mul_diag r α hα i) ⟨_, rfl⟩).symm.eq
   · -- (U_{v,α}, U_{w,β}): bad prime operators.
     by_cases hvw : v = w
     · -- v = w: use `HeckeOperator.U_comm`. Need to transport `hβ` across `hvw`.
